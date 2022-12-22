@@ -1,5 +1,11 @@
 # SauceDemoTAF
 Test Request for a Company
+Python 3.11.1
+behave 1.2.6
+Chrome Versión 108.0.5359.125
+
+In case you have a diffente version of chrome dowloand  the version  from here https://chromedriver.chromium.org/downloads
+and put it on /Drivers folder
 
 ## Please Be Sure you have installed: 
 Python
