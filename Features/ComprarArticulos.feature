@@ -6,10 +6,21 @@ Feature: Comprar uno o varios articulos
     And   Digita user "standard_user" y password "secret_sauce"
     And Clickea en el boton de login
 
-  Scenario: Compra Simple de un producto en saucedemo
+  Scenario: Compra Simple de varios producto en saucedemo
     When El Usuario Adiciona productos al carro de compras:
     | product |
     | Sauce Labs Backpack |
+    | Sauce Labs Bike Light |
+    And El usuario Clickea en el Carro de Compras
+    And El Usuario Clickea en checkout
+    And El Usuario Digita "FirstName" "LastName" "Zipcode"
+    And El Usuario Clickea en Continue
+    And El Usuario Clickea en Finish
+    Then Thank you for your order  aparece en la pagina
+
+    Scenario: Compra Simple de un producto en saucedemo
+    When El Usuario Adiciona productos al carro de compras:
+    | product |
     | Sauce Labs Bike Light |
     And El usuario Clickea en el Carro de Compras
     And El Usuario Clickea en checkout
