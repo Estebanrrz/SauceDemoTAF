@@ -31,7 +31,7 @@ behave .\Features\
 On the Project Path run (commnad Line):
 npm install -g allure-commandline --savedev     
 
-## Create Reports
+Create Reports
 behave -f allure_behave.formatter:AllureFormatter -o reports/ features
 Open reports HTML and run Server
 allure serve reports/
