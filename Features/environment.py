@@ -1,4 +1,4 @@
-#Hooks
+# Hooks
 from selenium import webdriver
 from PageObjects.LoginPage import *
 from Utilities.readProperties import *
