@@ -8,6 +8,7 @@ from Utilities.readProperties import *
 def before_scenario(context, scenario):
     context.driver = webdriver.Chrome(executable_path='../../Drivers/chromedriver.exe')
     context.driver.implicitly_wait(3)
+    context.driver.maximize_window()
     context.loginPage = LoginPage(context.driver)
     context.url = ReadConfig.getApplicationUrl()
 
