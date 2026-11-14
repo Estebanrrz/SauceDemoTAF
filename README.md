@@ -3,7 +3,11 @@
 UI test automation framework for [saucedemo.com](https://www.saucedemo.com/): Python, Selenium and behave (BDD,
 Spanish-language Gherkin steps), built on the Page Object pattern.
 
-Covers login/logout, menu, session, sorting, cart and checkout. **31 scenarios**, all passing against the real site.
+Covers login/logout, menu, session, sorting, cart and checkout: **31 scenarios** against the real site.
+
+Known limitation: each feature passes when run on its own, but a full run on a heavily loaded machine can fail at
+random (clicks that do not register in time). Close other browsers before a full run. Failed scenarios are retried
+once and, if they pass, reported as flaky in `artifacts/report.html`.
 
 ## Requirements
 
