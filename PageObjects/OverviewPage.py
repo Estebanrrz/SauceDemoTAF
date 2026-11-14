@@ -8,7 +8,7 @@ class OverviewPage(AbstractPage):
     __Total_Xpath = '//div[contains(@class,"summary_total_label")]'
 
     def ClickFinishButton(self):
-        AbstractPage.find_element_by_Xpath(self, self.__Button_Fisnish_Xpath).click()
+        AbstractPage.click_by_Xpath(self, self.__Button_Fisnish_Xpath)
 
     def GetTotal(self):
         total = AbstractPage.find_element_by_Xpath(self, self.__Total_Xpath).text

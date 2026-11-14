@@ -1,0 +1,17 @@
+# Dependencies / virtual environments
+.venv/
+venv/
+node_modules/
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated output (reports, logs, screenshots, builds, coverage)
+artifacts/
+allure-results/
+build/
+dist/
+htmlcov/
+.coverage

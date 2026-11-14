@@ -18,5 +18,11 @@ class LoginPage(AbstractPage):
         AbstractPage.find_element_by_Xpath(self, self.__Textbox_Password_Xpath).send_keys(password)
 
     def clickLoginButton(self):
-        AbstractPage.find_element_by_Xpath(self, self.__Button_Login_Xpath).click()
+        AbstractPage.click_by_Xpath(self, self.__Button_Login_Xpath)
+
+    def getUserNameValue(self):
+        return AbstractPage.find_element_by_Xpath(self, self.__Textbox_UserName_Xpath).get_attribute('value')
+
+    def getPasswordValue(self):
+        return AbstractPage.find_element_by_Xpath(self, self.__Textbox_Password_Xpath).get_attribute('value')
 

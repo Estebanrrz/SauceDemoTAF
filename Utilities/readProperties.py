@@ -1,18 +1,54 @@
 # Utilities Page to set/get config from a file
+#
+# Precedence for every setting: environment variable > Configuration/config.ini > default.
 
 import configparser
 import os
-from pathlib import Path
 
-path = Path(__file__)
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-config_path = os.path.join(ROOT_DIR, 'Configuration\\config.ini')
+config_path = os.path.join(ROOT_DIR, 'Configuration', 'config.ini')
 config = configparser.RawConfigParser()
 config.read(config_path)
+
+
+def _get(section, key, env=None, default=None):
+    if env and os.environ.get(env):
+        return os.environ[env]
+    return config.get(section, key, fallback=default)
 
 
 class ReadConfig:
     @staticmethod
     def getApplicationUrl():
-        url = config.get('settings', 'baseUrl')
-        return url
+        """Always ends with '/' (SAUCEDEMO_URL overrides config.ini, e.g. to target a replica)."""
+        url = _get('settings', 'baseUrl', 'SAUCEDEMO_URL')
+        return url if url.endswith('/') else url + '/'
+
+    @staticmethod
+    def isHeadless():
+        return _get('settings', 'headless', 'HEADLESS', 'false').lower() in ('1', 'true', 'yes')
+
+    @staticmethod
+    def getRetries():
+        return max(0, int(_get('settings', 'retries', 'RETRIES', '0')))
+
+    @staticmethod
+    def getExplicitWait():
+        return int(_get('settings', 'explicitWait', 'EXPLICIT_WAIT', '10'))
+
+    @staticmethod
+    def getPageLoadTimeout():
+        return int(_get('settings', 'pageLoadTimeout', None, '30'))
+
+    @staticmethod
+    def getDataDir():
+        return os.path.join(ROOT_DIR, _get('paths', 'data', None, 'Data'))
+
+    @staticmethod
+    def getArtifactsDir():
+        return os.path.join(ROOT_DIR, _get('paths', 'artifacts', 'ARTIFACTS_DIR', 'artifacts'))
+
+    @staticmethod
+    def getLocalDriverPath():
+        """Fallback chromedriver kept in the repo (see README) for when Selenium Manager cannot download one."""
+        return os.path.join(ROOT_DIR, 'Drivers', 'chromedriver.exe')

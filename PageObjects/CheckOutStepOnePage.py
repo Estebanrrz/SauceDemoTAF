@@ -20,4 +20,9 @@ class CheckOutStepOnePage(AbstractPage):
         AbstractPage.find_element_by_Xpath(self, self.__ZipCode_Field_Xpath).send_keys(zipcode)
 
     def ClickOnContinueButton(self):
-        AbstractPage.find_element_by_Xpath(self, self.__Continue_Button_xpath).click()
+        AbstractPage.click_by_Xpath(self, self.__Continue_Button_xpath)
+
+    def GetFieldValues(self):
+        return (AbstractPage.find_element_by_Xpath(self, self.__FirstName_Field_Xpath).get_attribute('value'),
+                AbstractPage.find_element_by_Xpath(self, self.__LastName_Field_Xpath).get_attribute('value'),
+                AbstractPage.find_element_by_Xpath(self, self.__ZipCode_Field_Xpath).get_attribute('value'))

@@ -47,6 +47,3 @@ Feature: Comprar uno o varios articulos
     And El Usuario Digita "FirstName" "LastName" "Zipcode"
     And El Usuario Clickea en Continue
     And El Total es  'Total: $43.18'
-
-
-
