@@ -4,6 +4,8 @@
 behave==1.3.3      # BDD runner (Gherkin features + step definitions)
 selenium==4.52.0   # Browser automation; Selenium Manager fetches the matching chromedriver
 flask==3.1.2       # Local copy of saucedemo (app/server.py) so the suite runs offline
+playwright==1.56.0 # Second browser engine (default)
+chromedriver-py==141.0.7390.54  # Driver for the Chromium that comes with Playwright
 
 # Optional, only if you want an Allure report in addition to artifacts/report.html:
 #   allure-behave==2.15.0   (then: behave -f allure_behave.formatter:AllureFormatter -o allure-results)

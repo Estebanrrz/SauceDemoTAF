@@ -21,12 +21,21 @@ class ReadConfig:
     @staticmethod
     def getApplicationUrl():
         """Always ends with '/' (SAUCEDEMO_URL overrides config.ini, e.g. to target a replica)."""
-        url = _get('settings', 'baseUrl', 'SAUCEDEMO_URL')
+        url = _get('settings', 'baseUrl', 'SAUCEDEMO_URL', 'http://127.0.0.1:5055/')
         return url if url.endswith('/') else url + '/'
 
     @staticmethod
     def isHeadless():
-        return _get('settings', 'headless', 'HEADLESS', 'false').lower() in ('1', 'true', 'yes')
+        return _get('settings', 'headless', 'HEADLESS', 'true').lower() in ('1', 'true', 'yes')
+
+    @staticmethod
+    def getDefaultEngine():
+        return _get('settings', 'engine', 'ENGINE', 'playwright')
+
+    @staticmethod
+    def getBrowserChannel():
+        """Installed browser for Playwright (e.g. 'chrome'). Empty means Playwright's own Chromium."""
+        return _get('settings', 'browserChannel', 'PLAYWRIGHT_CHANNEL', '') or None
 
     @staticmethod
     def getRetries():
