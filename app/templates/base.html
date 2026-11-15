@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Swag Labs</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #fff; color: #132322; }
+    .primary_header { display: flex; align-items: center; justify-content: space-between;
+                      padding: 10px 20px; border-bottom: 2px solid #e2231a; }
+    .app_logo { font-size: 22px; font-weight: bold; }
+    .title { display: block; font-size: 18px; font-weight: bold; margin: 15px 20px; }
+    .bm-burger-button button, .bm-cross-button button { background: none; border: 1px solid #132322;
+                      cursor: pointer; font-size: 14px; padding: 4px 8px; }
+    .bm-menu-wrap { position: fixed; top: 0; left: 0; width: 220px; height: 100%;
+                    background: #ffffff; border-right: 1px solid #ccc; padding: 40px 10px; z-index: 10; }
+    .bm-menu-wrap[aria-hidden="true"] { display: none; }
+    .bm-item-list a { display: block; padding: 10px; color: #132322; text-decoration: none; }
+    .shopping_cart_link { position: relative; text-decoration: none; color: #132322; font-size: 20px; }
+    .shopping_cart_badge { background: #e2231a; color: #fff; border-radius: 50%; padding: 2px 7px;
+                           font-size: 12px; margin-left: 2px; }
+    .inventory_item, .cart_item { border-bottom: 1px solid #ddd; padding: 15px 20px; }
+    .inventory_item_name { color: #18583a; font-weight: bold; }
+    .inventory_item_price { font-size: 18px; margin: 6px 0; }
+    .btn { border: 1px solid #132322; background: #fff; cursor: pointer; padding: 8px 14px;
+           border-radius: 4px; font-size: 14px; }
+    .btn_action, .submit-button { background: #3ddc91; }
+    .error-message-container h3, h3[data-test="error"] { color: #fff; background: #e2231a;
+           padding: 8px; font-size: 14px; font-weight: normal; }
+    .form_input { display: block; margin: 8px 0; padding: 8px; width: 240px; }
+    .summary_info { margin: 15px 20px; }
+    .login_wrapper { max-width: 300px; margin: 60px auto; }
+  </style>
+</head>
+<body>
+{% block menu %}
+<div id="menu_button_container">
+  <div class="bm-burger-button">
+    <button id="react-burger-menu-btn" aria-label="Open Menu"
+            onclick="document.querySelector('.bm-menu-wrap').setAttribute('aria-hidden','false')">Open Menu</button>
+  </div>
+  <div class="bm-menu-wrap" aria-hidden="true">
+    <div class="bm-cross-button">
+      <button id="react-burger-cross-btn" aria-label="Close Menu"
+              onclick="document.querySelector('.bm-menu-wrap').setAttribute('aria-hidden','true')">Close Menu</button>
+    </div>
+    <nav class="bm-item-list">
+      <a id="inventory_sidebar_link" data-test="inventory-sidebar-link" class="bm-item menu-item"
+         href="{{ url_for('inventory') }}">All Items</a>
+      <a id="about_sidebar_link" data-test="about-sidebar-link" class="bm-item menu-item" href="#">About</a>
+      <a id="logout_sidebar_link" data-test="logout-sidebar-link" class="bm-item menu-item"
+         href="{{ url_for('logout') }}">Logout</a>
+      <a id="reset_sidebar_link" data-test="reset-sidebar-link" class="bm-item menu-item" href="#">Reset App State</a>
+    </nav>
+  </div>
+</div>
+<header class="primary_header" data-test="primary-header">
+  <div class="app_logo">Swag Labs</div>
+  <div id="shopping_cart_container" class="shopping_cart_container" data-test="shopping-cart-container">
+    <a class="shopping_cart_link" data-test="shopping-cart-link" href="{{ url_for('cart_page') }}">&#128722;{% if cart_count %}<span class="shopping_cart_badge" data-test="shopping-cart-badge">{{ cart_count }}</span>{% endif %}</a>
+  </div>
+</header>
+{% endblock %}
+{% block content %}{% endblock %}
+<footer class="footer" data-test="footer">
+  <div class="footer_copy" data-test="footer-copy">&copy; 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy</div>
+</footer>
+</body>
+</html>

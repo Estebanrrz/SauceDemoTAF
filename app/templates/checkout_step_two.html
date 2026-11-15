@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<span class="title" data-test="title">Checkout: Overview</span>
+<div class="cart_list" data-test="cart-list">
+  <div class="cart_quantity_label" data-test="cart-quantity-label">QTY</div>
+  <div class="cart_desc_label" data-test="cart-desc-label">Description</div>
+  {% for p in items %}
+  <div class="cart_item" data-test="inventory-item">
+    <div class="cart_quantity" data-test="item-quantity">1</div>
+    <div class="cart_item_label">
+      <a href="#"><div class="inventory_item_name" data-test="inventory-item-name">{{ p.name }}</div></a>
+      <div class="inventory_item_desc" data-test="inventory-item-desc">{{ p.description }}</div>
+      <div class="item_pricebar">
+        <div class="inventory_item_price" data-test="inventory-item-price">${{ money(p.price) }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="summary_info" data-test="checkout-summary">
+  <div class="summary_info_label" data-test="payment-info-label">Payment Information:</div>
+  <div class="summary_value_label" data-test="payment-info-value">SauceCard #31337</div>
+  <div class="summary_info_label" data-test="shipping-info-label">Shipping Information:</div>
+  <div class="summary_value_label" data-test="shipping-info-value">Free Pony Express Delivery!</div>
+  <div class="summary_info_label" data-test="total-info-label">Price Total</div>
+  <div class="summary_subtotal_label" data-test="subtotal-label">Item total: ${{ money(subtotal) }}</div>
+  <div class="summary_tax_label" data-test="tax-label">Tax: ${{ money(tax) }}</div>
+  <div class="summary_total_label" data-test="total-label">Total: ${{ money(total) }}</div>
+  <div class="cart_footer">
+    <a class="btn btn_secondary back" id="cancel" data-test="cancel" href="{{ url_for('inventory') }}">Cancel</a>
+    <form method="post" action="{{ url_for('checkout_complete') }}" style="display:inline;">
+      <button class="btn btn_action cart_button" id="finish" data-test="finish">Finish</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

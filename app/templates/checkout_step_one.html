@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<span class="title" data-test="title">Checkout: Your Information</span>
+<div class="checkout_info_wrapper" style="margin:20px;">
+  <form method="post" action="{{ url_for('checkout_step_one') }}">
+    <div class="checkout_info">
+      <input class="form_input input_error" id="first-name" name="firstName" data-test="firstName"
+             type="text" placeholder="First Name" value="{{ first }}" autocomplete="off">
+      <input class="form_input input_error" id="last-name" name="lastName" data-test="lastName"
+             type="text" placeholder="Last Name" value="{{ last }}" autocomplete="off">
+      <input class="form_input input_error" id="postal-code" name="postalCode" data-test="postalCode"
+             type="text" placeholder="Zip/Postal Code" value="{{ postal }}" autocomplete="off">
+      {% if error %}
+      <div class="error-message-container error">
+        <h3 data-test="error">{{ error }}</h3>
+      </div>
+      {% endif %}
+    </div>
+    <div class="checkout_buttons">
+      <a class="btn btn_secondary back" id="cancel" data-test="cancel" href="{{ url_for('cart_page') }}">Cancel</a>
+      <input type="submit" class="submit-button btn btn_primary" id="continue" data-test="continue" value="Continue">
+    </div>
+  </form>
+</div>
+{% endblock %}

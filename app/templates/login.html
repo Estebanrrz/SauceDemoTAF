@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block menu %}{% endblock %}
+{% block content %}
+<div class="login_wrapper">
+  <div class="app_logo" style="text-align:center; margin-bottom: 20px;">Swag Labs</div>
+  <form method="post" action="{{ url_for('login') }}">
+    <input class="form_input input_error" id="user-name" name="user-name" data-test="username"
+           type="text" placeholder="Username" value="{{ username }}" autocomplete="off">
+    <input class="form_input input_error" id="password" name="password" data-test="password"
+           type="password" placeholder="Password" autocomplete="off">
+    {% if error %}
+    <div class="error-message-container error">
+      <h3 data-test="error">{{ error }}</h3>
+    </div>
+    {% endif %}
+    <input type="submit" class="submit-button btn_action" id="login-button" data-test="login-button"
+           name="login-button" value="Login">
+  </form>
+  <div class="login_credentials_wrap" style="margin-top:30px; font-size: 12px; color:#777;">
+    <div id="login_credentials" class="login_credentials" data-test="login-credentials">
+      <h4>Accepted usernames are:</h4>
+      {% for u in ['standard_user', 'locked_out_user', 'problem_user', 'performance_glitch_user'] %}{{ u }}<br>{% endfor %}
+    </div>
+    <div class="login_password" data-test="login-password">
+      <h4>Password for all users:</h4>secret_sauce
+    </div>
+  </div>
+</div>
+{% endblock %}

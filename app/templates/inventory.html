@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header_secondary_container" style="display:flex; justify-content:space-between; align-items:center;">
+  <span class="title" data-test="title">Products</span>
+  <select class="product_sort_container" data-test="product-sort-container"
+          style="margin-right:20px;" aria-label="Sort products">
+    <option value="az">Name (A to Z)</option>
+    <option value="za">Name (Z to A)</option>
+    <option value="lohi">Price (low to high)</option>
+    <option value="hilo">Price (high to low)</option>
+  </select>
+</div>
+<div id="inventory_container" class="inventory_list" data-test="inventory-list">
+  {% for p in products %}
+  <div class="inventory_item" data-test="inventory-item" data-name="{{ p.name }}" data-price="{{ p.price }}">
+    <div class="inventory_item_description" data-test="inventory-item-description">
+      <div class="inventory_item_label">
+        <a href="#"><div class="inventory_item_name" data-test="inventory-item-name">{{ p.name }}</div></a>
+        <div class="inventory_item_desc" data-test="inventory-item-desc">{{ p.description }}</div>
+      </div>
+      <div class="pricebar">
+        <div class="inventory_item_price" data-test="inventory-item-price">${{ money(p.price) }}</div>
+        <form method="post" action="{{ url_for('toggle_cart', slug=p.slug) }}" style="display:inline;">
+          <input type="hidden" name="back" value="{{ request.full_path if request.query_string else request.path }}">
+          {% if p.slug in in_cart %}
+          <button class="btn btn_secondary btn_small btn_inventory" id="remove-{{ p.slug }}"
+                  data-test="remove-{{ p.slug }}">Remove</button>
+          {% else %}
+          <button class="btn btn_primary btn_small btn_inventory" id="add-to-cart-{{ p.slug }}"
+                  data-test="add-to-cart-{{ p.slug }}">Add to cart</button>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<script>
+  // Sorting happens client-side (as on the real site): the DOM is reordered synchronously on change.
+  document.querySelector('.product_sort_container').addEventListener('change', function () {
+    var list = document.getElementById('inventory_container');
+    var items = Array.prototype.slice.call(list.querySelectorAll('.inventory_item'));
+    var key = this.value;
+    items.sort(function (a, b) {
+      var an = a.dataset.name, bn = b.dataset.name;
+      var ap = parseFloat(a.dataset.price), bp = parseFloat(b.dataset.price);
+      var byName = an < bn ? -1 : (an > bn ? 1 : 0);
+      if (key === 'az') return byName;
+      if (key === 'za') return -byName;
+      if (key === 'lohi') return (ap - bp) || byName;
+      return (bp - ap) || byName;  // hilo
+    });
+    items.forEach(function (i) { list.appendChild(i); });
+  });
+</script>
+{% endblock %}
