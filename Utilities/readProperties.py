@@ -33,6 +33,11 @@ class ReadConfig:
         return _get('settings', 'engine', 'ENGINE', 'playwright')
 
     @staticmethod
+    def getDevice():
+        """Playwright device(s) to emulate ('iPhone 13' or 'iPhone 13, Pixel 7'). Empty means desktop."""
+        return _get('settings', 'device', 'DEVICE', '') or None
+
+    @staticmethod
     def getBrowserChannel():
         """Installed browser for Playwright (e.g. 'chrome'). Empty means Playwright's own Chromium."""
         return _get('settings', 'browserChannel', 'PLAYWRIGHT_CHANNEL', '') or None

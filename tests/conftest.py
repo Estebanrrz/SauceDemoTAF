@@ -35,10 +35,18 @@ def engine_name(request):
     return request.config.getoption('--engine') or ReadConfig.getDefaultEngine()
 
 
+@pytest.fixture(scope='session')
+def device(request):
+    """Playwright device to emulate (--device, already checked in the root conftest), or None for desktop."""
+    return request.config.getoption('--device')
+
+
 @pytest.fixture
-def engine(engine_name, base_url):
+def engine(engine_name, device, base_url):
     """A new browser session for every test."""
-    browser = create_engine(engine_name, headless=ReadConfig.isHeadless())
+    if device and engine_name != 'playwright':  # tests that pick their own device (tests/test_mobile.py)
+        pytest.skip('Device emulation needs Playwright')
+    browser = create_engine(engine_name, headless=ReadConfig.isHeadless(), device=device)
     yield browser
     browser.quit()
 
