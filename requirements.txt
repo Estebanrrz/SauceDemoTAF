@@ -3,7 +3,7 @@
 
 pytest==9.2.0        # Test runner
 pytest-html==4.2.0   # HTML report (reports/report.html)
-selenium==4.52.0     # Browser engine #1
+selenium==4.51.0     # Browser engine #1
 playwright==1.56.0   # Browser engine #2 (default)
 flask==3.1.2         # Local copy of saucedemo (app/server.py) so the suite runs offline
 

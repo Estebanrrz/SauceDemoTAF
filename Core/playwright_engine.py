@@ -1,11 +1,13 @@
 # Playwright implementation of Engine (Chromium).
 #
-# Uses the browsers Playwright already has (PLAYWRIGHT_BROWSERS_PATH, e.g. /opt/pw-browsers), so
-# nothing is downloaded. If you prefer an installed browser, set PLAYWRIGHT_CHANNEL=chrome.
+# Uses the browsers Playwright already has (PLAYWRIGHT_BROWSERS_PATH, or /opt/pw-browsers when it exists), so
+# nothing is downloaded. Without a Playwright Chromium it uses the installed Chrome (PLAYWRIGHT_CHANNEL=chrome forces it).
 # One browser process is shared by all tests; every Engine gets its own clean context.
 
 import atexit
+import os
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from Core.engine import Engine
@@ -15,14 +17,32 @@ _playwright = None
 _browser = None
 _headless = None
 
+OFFLINE_BROWSERS = '/opt/pw-browsers'
+
+
+def _launch(headless):
+    channel = ReadConfig.getBrowserChannel()
+    try:
+        return _playwright.chromium.launch(headless=headless, channel=channel)
+    except PlaywrightError as no_chromium:
+        if channel:
+            raise
+        # Playwright has no Chromium here: use the Chrome installed on the machine
+        try:
+            return _playwright.chromium.launch(headless=headless, channel='chrome')
+        except PlaywrightError:
+            raise no_chromium
+
 
 def _get_browser(headless):
     global _playwright, _browser, _headless
     if _browser is not None and _headless != headless:
         _shutdown()
     if _browser is None:
+        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH') and os.path.isdir(OFFLINE_BROWSERS):
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = OFFLINE_BROWSERS
         _playwright = sync_playwright().start()
-        _browser = _playwright.chromium.launch(headless=headless, channel=ReadConfig.getBrowserChannel())
+        _browser = _launch(headless)
         _headless = headless
         atexit.register(_shutdown)
     return _browser
