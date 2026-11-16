@@ -100,11 +100,27 @@ class SeleniumEngine(Engine):
         # The page can re-render between finding the element and clicking it: try again
         for attempt in range(3):
             try:
-                self._wait().until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
+                element = self._wait().until(EC.element_to_be_clickable((By.XPATH, xpath)))
+                opens_page = self._opens_a_page(element)
+                element.click()
+                if opens_page:
+                    self._wait_for_new_page(element)
                 return
             except (StaleElementReferenceException, ElementClickInterceptedException):
                 if attempt == 2:
                     raise
+
+    @staticmethod
+    def _opens_a_page(element):
+        """Links and form buttons load a page; the rest (menu, buttons with scripts) do not."""
+        return element.tag_name == 'a' or bool(element.find_elements(By.XPATH, './ancestor::form'))
+
+    def _wait_for_new_page(self, clicked):
+        """Selenium does not always wait for the page a click opens (form post, redirect) and the next
+        click would cancel it. Playwright waits by itself, so do the same here: wait until the clicked
+        element is gone and the new page has finished loading."""
+        self._wait().until(EC.staleness_of(clicked))
+        self._wait().until(lambda d: d.execute_script('return document.readyState') == 'complete')
 
     def fill(self, xpath, text):
         element = self._present(xpath)

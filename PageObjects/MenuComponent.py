@@ -1,5 +1,6 @@
-# Burger menu: present on every page after login, so it is a component and not part of one page.
+# Burger menu: it is on every page after login, so it is a component and not part of one page
 from PageObjects.AbstractPage import AbstractPage
+from Utilities.steps import step
 
 
 class MenuComponent(AbstractPage):
@@ -10,21 +11,22 @@ class MenuComponent(AbstractPage):
     __Logout_Xpath = '//a[@id="logout_sidebar_link"]'
     __MenuWrap_Xpath = '//div[contains(@class,"bm-menu-wrap")]'
 
-    def _click(self, locator):
-        # The menu slides in/out with a CSS transition: wait until the item is really clickable.
-        self.click_by_Xpath(locator)
-
+    @step('open the side menu')
     def Open(self):
-        self._click(self.__BurguerMenu_Xpath)
+        self.engine.click(self.__BurguerMenu_Xpath)
 
+    @step('close the side menu')
     def Close(self):
-        self._click(self.__Close_Xpath)
+        self.engine.click(self.__Close_Xpath)
 
+    @step('click All Items in the menu')
     def ClickAllItems(self):
-        self._click(self.__AllItems_Xpath)
+        self.engine.click(self.__AllItems_Xpath)
 
+    @step('click Logout in the menu')
     def ClickLogout(self):
-        self._click(self.__Logout_Xpath)
+        self.engine.click(self.__Logout_Xpath)
 
+    @step('check whether the side menu is open')
     def IsOpen(self):
-        return self.find_element_by_Xpath(self.__MenuWrap_Xpath).get_attribute('aria-hidden') == 'false'
+        return self.engine.attribute(self.__MenuWrap_Xpath, 'aria-hidden') == 'false'

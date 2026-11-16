@@ -38,10 +38,6 @@ class ReadConfig:
         return _get('settings', 'browserChannel', 'PLAYWRIGHT_CHANNEL', '') or None
 
     @staticmethod
-    def getRetries():
-        return max(0, int(_get('settings', 'retries', 'RETRIES', '0')))
-
-    @staticmethod
     def getExplicitWait():
         return int(_get('settings', 'explicitWait', 'EXPLICIT_WAIT', '10'))
 
@@ -52,10 +48,6 @@ class ReadConfig:
     @staticmethod
     def getDataDir():
         return os.path.join(ROOT_DIR, _get('paths', 'data', None, 'Data'))
-
-    @staticmethod
-    def getArtifactsDir():
-        return os.path.join(ROOT_DIR, _get('paths', 'artifacts', 'ARTIFACTS_DIR', 'artifacts'))
 
     @staticmethod
     def getLocalDriverPath():

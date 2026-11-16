@@ -8,9 +8,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Generated output (reports, logs, screenshots, builds, coverage)
-artifacts/
-allure-results/
+# Generated output (reports, builds, coverage)
+reports/
 build/
 dist/
 htmlcov/

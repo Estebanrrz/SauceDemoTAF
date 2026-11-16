@@ -1,5 +1,6 @@
 #Checkout Step Page
 from PageObjects.AbstractPage import AbstractPage
+from Utilities.steps import step
 
 
 class CheckOutStepOnePage(AbstractPage):
@@ -9,20 +10,30 @@ class CheckOutStepOnePage(AbstractPage):
     __ZipCode_Field_Xpath = '//*[@id="postal-code"]'
     __Continue_Button_xpath = '//*[@id="continue"]'
 
-
+    @step("type the first name '{name}'")
     def SetValueOnFirstName(self, name):
-        AbstractPage.find_element_by_Xpath(self, self.__FirstName_Field_Xpath).send_keys(name)
+        self.engine.fill(self.__FirstName_Field_Xpath, name)
 
+    @step("type the last name '{lastName}'")
     def SetValueOnLastName(self, lastName):
-        AbstractPage.find_element_by_Xpath(self, self.__LastName_Field_Xpath).send_keys(lastName)
+        self.engine.fill(self.__LastName_Field_Xpath, lastName)
 
+    @step("type the postal code '{zipcode}'")
     def SetValueOnZipCode(self, zipcode):
-        AbstractPage.find_element_by_Xpath(self, self.__ZipCode_Field_Xpath).send_keys(zipcode)
+        self.engine.fill(self.__ZipCode_Field_Xpath, zipcode)
 
+    @step("fill in the customer details: '{firstName}' '{lastName}' '{zipcode}'")
+    def FillInformation(self, firstName, lastName, zipcode):
+        self.SetValueOnFirstName(firstName)
+        self.SetValueOnLastName(lastName)
+        self.SetValueOnZipCode(zipcode)
+
+    @step('click Continue')
     def ClickOnContinueButton(self):
-        AbstractPage.click_by_Xpath(self, self.__Continue_Button_xpath)
+        self.engine.click(self.__Continue_Button_xpath)
 
+    @step('read the checkout form fields')
     def GetFieldValues(self):
-        return (AbstractPage.find_element_by_Xpath(self, self.__FirstName_Field_Xpath).get_attribute('value'),
-                AbstractPage.find_element_by_Xpath(self, self.__LastName_Field_Xpath).get_attribute('value'),
-                AbstractPage.find_element_by_Xpath(self, self.__ZipCode_Field_Xpath).get_attribute('value'))
+        return (self.engine.value(self.__FirstName_Field_Xpath),
+                self.engine.value(self.__LastName_Field_Xpath),
+                self.engine.value(self.__ZipCode_Field_Xpath))

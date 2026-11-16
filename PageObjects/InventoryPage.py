@@ -1,72 +1,75 @@
 # Inventory Page
-from selenium.common.exceptions import StaleElementReferenceException
-from selenium.webdriver.support.ui import Select
-
 from PageObjects.AbstractPage import AbstractPage
+from Utilities.steps import step
 
 
 class InventoryPage(AbstractPage):
     # Locators
-    __Inventory_Item_By_Name_Xpath = '//div[@data-test="inventory-item-name"][contains(text(),' \
-                                     '"$itemName$")]/ancestor::div[@data-test="inventory-item"] '
-    __Button_Add_To_Cart_Xpath = './/button[ contains(@class,"btn_inventory")]'
+    __Item_Button_By_Name_Xpath = '//div[@data-test="inventory-item-name"][normalize-space()="{name}"]' \
+                                  '/ancestor::div[@data-test="inventory-item"]' \
+                                  '//button[contains(@class,"btn_inventory")]'
     __All_Item_Buttons_Xpath = '//button[contains(@class,"btn_inventory")]'
+    __Item_Button_By_Text_Xpath = '(//button[contains(@class,"btn_inventory")][normalize-space()="{text}"])[1]'
     __Item_Names_Xpath = '//div[@data-test="inventory-item-name"]'
     __Item_Prices_Xpath = '//div[@data-test="inventory-item-price"]'
     __Sort_Select_Xpath = '//select[@class="product_sort_container"]'
     __Button_Shopping_Cart_Xpath = '//*[@id="shopping_cart_container"]/a'
     __Count_ShoppingCart_Xpath = '//*[@id="shopping_cart_container"]/a/span'
 
+    @step('add {itemName} to the cart')
     def AddtoCartItem(self, itemName):
-        item = AbstractPage.find_element_by_Xpath(self,
-                                                  self.__Inventory_Item_By_Name_Xpath.replace("$itemName$", itemName))
-        item.find_element("xpath", self.__Button_Add_To_Cart_Xpath).click()
+        # The same button switches between "Add to cart" and "Remove"
+        self.engine.click(self.__Item_Button_By_Name_Xpath.format(name=itemName))
 
+    @step('read the button of {itemName}')
+    def GetItemButtonText(self, itemName):
+        return self.engine.text(self.__Item_Button_By_Name_Xpath.format(name=itemName))
+
+    @step("click every '{text}' button on the products page")
     def ClickAllButtonsWithText(self, text):
-        """Click every product button whose label equals text ("Add to cart" / "Remove"). Returns how many."""
-        AbstractPage.find_element_by_Xpath(self, self.__All_Item_Buttons_Xpath)
+        """Click every product button labelled text ("Add to cart" / "Remove"). Returns how many."""
+        self.engine.wait_for(self.__All_Item_Buttons_Xpath)
         clicked = 0
-        limit = 3 * len(self.find_elements_by_Xpath(self.__All_Item_Buttons_Xpath))  # never loop forever
+        limit = 3 * self.engine.count(self.__All_Item_Buttons_Xpath)  # never loop forever
         for _ in range(limit):
-            try:
-                pending = [b for b in self.find_elements_by_Xpath(self.__All_Item_Buttons_Xpath) if b.text == text]
-                if not pending:
-                    return clicked
-                pending[0].click()
-                clicked += 1
-            except StaleElementReferenceException:
-                continue  # the page re-rendered; look the buttons up again
+            if text not in self.GetButtonTexts():
+                return clicked
+            self.engine.click(self.__Item_Button_By_Text_Xpath.format(text=text))
+            clicked += 1
         raise AssertionError(f"Some buttons are still '{text}' after {limit} attempts")
 
+    @step('read the buttons of all products')
     def GetButtonTexts(self):
-        AbstractPage.find_element_by_Xpath(self, self.__All_Item_Buttons_Xpath)
-        return [b.text for b in self.find_elements_by_Xpath(self.__All_Item_Buttons_Xpath)]
+        self.engine.wait_for(self.__All_Item_Buttons_Xpath)
+        return self.engine.texts(self.__All_Item_Buttons_Xpath)
 
-    def GetItemButtonText(self, itemName):
-        item = AbstractPage.find_element_by_Xpath(self,
-                                                  self.__Inventory_Item_By_Name_Xpath.replace("$itemName$", itemName))
-        return item.find_element("xpath", self.__Button_Add_To_Cart_Xpath).text
-
+    @step('read the product names')
     def GetItemNames(self):
-        AbstractPage.find_element_by_Xpath(self, self.__Item_Names_Xpath)
-        return [e.text for e in self.find_elements_by_Xpath(self.__Item_Names_Xpath)]
+        self.engine.wait_for(self.__Item_Names_Xpath)
+        return self.engine.texts(self.__Item_Names_Xpath)
 
+    @step('read the product prices')
     def GetItemPrices(self):
-        AbstractPage.find_element_by_Xpath(self, self.__Item_Prices_Xpath)
-        return [float(e.text.replace('$', '')) for e in self.find_elements_by_Xpath(self.__Item_Prices_Xpath)]
+        self.engine.wait_for(self.__Item_Prices_Xpath)
+        return [float(p.replace('$', '')) for p in self.engine.texts(self.__Item_Prices_Xpath)]
 
+    @step('read the product catalog (names and prices)')
     def GetCatalog(self):
-        """Products shown in the inventory as {name: price}."""
+        """Products shown on the page as {name: price}."""
         return dict(zip(self.GetItemNames(), self.GetItemPrices()))
 
-    def SortBy(self, visibleText):
-        Select(AbstractPage.find_element_by_Xpath(self, self.__Sort_Select_Xpath)).select_by_visible_text(visibleText)
+    @step("sort the products by '{option}'")
+    def SortBy(self, option):
+        self.engine.select_by_label(self.__Sort_Select_Xpath, option)
 
+    @step('open the shopping cart')
     def ClickShoppingCartButton(self):
-        AbstractPage.click_by_Xpath(self, self.__Button_Shopping_Cart_Xpath)
+        self.engine.click(self.__Button_Shopping_Cart_Xpath)
 
+    @step('read the cart counter')
     def GetCounterShoppincart(self):
-        return AbstractPage.find_element_by_Xpath(self, self.__Count_ShoppingCart_Xpath).text
+        return self.engine.text(self.__Count_ShoppingCart_Xpath)
 
+    @step('check whether the cart counter is shown')
     def IsCartBadgeDisplayed(self):
-        return len(self.find_elements_by_Xpath(self.__Count_ShoppingCart_Xpath)) > 0
+        return self.engine.count(self.__Count_ShoppingCart_Xpath) > 0

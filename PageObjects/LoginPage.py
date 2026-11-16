@@ -1,5 +1,6 @@
 #Login Page
 from PageObjects.AbstractPage import AbstractPage
+from Utilities.steps import step
 
 
 class LoginPage(AbstractPage):
@@ -8,21 +9,28 @@ class LoginPage(AbstractPage):
     __Textbox_Password_Xpath = '//input[@id="password"]'
     __Button_Login_Xpath = '//input[@id="login-button"]'
 
+    @step("type the username '{username}'")
+    def SetUserName(self, username):
+        self.engine.fill(self.__Textbox_UserName_Xpath, username)
 
-    def setUserName(self, username):
-        AbstractPage.find_element_by_Xpath(self, self.__Textbox_UserName_Xpath).clear()
-        AbstractPage.find_element_by_Xpath(self, self.__Textbox_UserName_Xpath).send_keys(username)
+    @step('type the password {password}')
+    def SetPassword(self, password):
+        self.engine.fill(self.__Textbox_Password_Xpath, password)
 
-    def setPassword(self, password):
-        AbstractPage.find_element_by_Xpath(self, self.__Textbox_Password_Xpath).clear()
-        AbstractPage.find_element_by_Xpath(self, self.__Textbox_Password_Xpath).send_keys(password)
+    @step('click the Login button')
+    def ClickLoginButton(self):
+        self.engine.click(self.__Button_Login_Xpath)
 
-    def clickLoginButton(self):
-        AbstractPage.click_by_Xpath(self, self.__Button_Login_Xpath)
+    @step('log in as {username} with password {password}')
+    def Login(self, username, password):
+        self.SetUserName(username)
+        self.SetPassword(password)
+        self.ClickLoginButton()
 
-    def getUserNameValue(self):
-        return AbstractPage.find_element_by_Xpath(self, self.__Textbox_UserName_Xpath).get_attribute('value')
+    @step('read the username field')
+    def GetUserNameValue(self):
+        return self.engine.value(self.__Textbox_UserName_Xpath)
 
-    def getPasswordValue(self):
-        return AbstractPage.find_element_by_Xpath(self, self.__Textbox_Password_Xpath).get_attribute('value')
-
+    @step('read the password field')
+    def GetPasswordValue(self):
+        return self.engine.value(self.__Textbox_Password_Xpath)
