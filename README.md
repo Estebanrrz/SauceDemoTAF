@@ -65,10 +65,10 @@ Some tests depend on the way the local app works, so a different site may make a
   1. `CHROMEDRIVER` (path to a chromedriver binary)
   2. `chromedriver-py`, only with the Playwright Chromium (that is the version it matches)
   3. Selenium Manager (needs internet)
-  4. `Drivers/chromedriver.exe`, kept in the repo as a last resort. It is version 108, so it
-     only works with Chrome 108. For another Chrome, download the matching driver from
-     <https://googlechromelabs.github.io/chrome-for-testing/> and replace the file or point
-     `CHROMEDRIVER` to it.
+  4. `Drivers/chromedriver.exe`, if you put one there. The repo does not include any binary: if
+     there is no internet, download the driver that matches your Chrome from
+     <https://googlechromelabs.github.io/chrome-for-testing/> and either save it in `Drivers/`
+     (ignored by git) or point `CHROMEDRIVER` to it.
 
 ## Settings
 
@@ -104,7 +104,7 @@ app/                       Local copy of saucedemo (Flask)
 Configuration/config.ini   Settings
 Core/                      Engine interface, Selenium and Playwright implementations, factory
 Data/                      Test data: users.json, products.json, customer.json
-Drivers/chromedriver.exe   Last-resort driver for Selenium (see "Browsers")
+Drivers/                   Optional, git-ignored: your own chromedriver (see "Browsers")
 PageObjects/               One class per page, plus MenuComponent (shared by all pages)
 Utilities/                 Config reader, test data reader, step logging
 tests/                     The tests, one file per area, and the fixtures (tests/conftest.py)

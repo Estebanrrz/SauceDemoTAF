@@ -6,7 +6,7 @@
 #   1. CHROMEDRIVER environment variable
 #   2. chromedriver-py, only when the bundled Chromium is used (that is the version it matches)
 #   3. Selenium Manager (needs internet)
-#   4. Drivers/chromedriver.exe kept in the repo, if the steps above fail
+#   4. Drivers/chromedriver.exe, only if you saved one there (git-ignored), when the steps above fail
 
 import glob
 import os

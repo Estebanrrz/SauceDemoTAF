@@ -51,5 +51,5 @@ class ReadConfig:
 
     @staticmethod
     def getLocalDriverPath():
-        """Fallback chromedriver kept in the repo (see README) for when Selenium Manager cannot download one."""
+        """Optional chromedriver the user saved in Drivers/ (git-ignored, see README)."""
         return os.path.join(ROOT_DIR, 'Drivers', 'chromedriver.exe')
