@@ -4,12 +4,16 @@
 # same error messages, same validation order and the same 8% tax.
 #
 # Run it alone:  python app/server.py   ->  http://127.0.0.1:5055/
-# The test suite starts it by itself when nothing is listening on that port.
+# The test suite starts it by itself when nothing is listening on that port (start_if_needed).
 
 import json
+import logging
 import os
 import re
+import socket
+import threading
 from functools import wraps
+from urllib.parse import urlparse
 
 from flask import Flask, redirect, render_template, request, session, url_for
 
@@ -178,6 +182,28 @@ def checkout_complete():
         session['cart'] = []
         return redirect(url_for('checkout_complete'))
     return render_template('checkout_complete.html')
+
+
+def start_if_needed(url):
+    """Start the app in a background thread unless something already listens on the port of url.
+    Returns a function that stops it (it does nothing if the app was already running)."""
+    parsed = urlparse(url)
+    host, port = parsed.hostname, parsed.port or 80
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        if sock.connect_ex((host, port)) == 0:
+            return lambda: None
+    from werkzeug.serving import make_server
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)  # one line per request would bury the output
+    server = make_server(host, port, app, threaded=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    def stop():
+        server.shutdown()
+        thread.join(timeout=5)
+
+    return stop
 
 
 def main():

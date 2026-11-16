@@ -4,11 +4,7 @@
 # port it starts the local app (app/server.py) in a thread, and then drives it with the engine
 # chosen with --engine.
 
-import logging
-import socket
-import threading
 from types import SimpleNamespace
-from urllib.parse import urlparse
 
 import pytest
 
@@ -23,34 +19,15 @@ from PageObjects.ShoppingCartPage import ShoppingCartPage
 from Utilities.readProperties import ReadConfig
 from Utilities.testData import TestData
 
-# One log line per request from the local app would bury the steps
-logging.getLogger('werkzeug').setLevel(logging.WARNING)
-
-
-def port_is_open(host, port):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.5)
-        return sock.connect_ex((host, port)) == 0
-
 
 @pytest.fixture(scope='session')
 def base_url():
     """URL of the app under test. Starts the local app if it is not already running."""
+    from app.server import start_if_needed
     url = ReadConfig.getApplicationUrl()
-    parsed = urlparse(url)
-    host, port = parsed.hostname, parsed.port or 80
-    if port_is_open(host, port):
-        yield url
-        return
-    from werkzeug.serving import make_server
-
-    from app.server import app
-    server = make_server(host, port, app, threaded=True)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    stop = start_if_needed(url)
     yield url
-    server.shutdown()
-    thread.join(timeout=5)
+    stop()
 
 
 @pytest.fixture(scope='session')
