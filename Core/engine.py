@@ -22,6 +22,8 @@ STEP_LABELS = {
 
 class Engine(ABC):
     name = 'abstract'
+    device = None          # Playwright device emulated (--device), None on desktop
+    phone_layout = False   # True when the emulated screen is narrow enough for the phone layout
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -84,6 +86,10 @@ class Engine(ABC):
     @abstractmethod
     def wait_for(self, xpath):
         """Wait until at least one element matches."""
+
+    @abstractmethod
+    def is_visible(self, xpath):
+        """True if the first match exists and is visible right now. No wait."""
 
     # ---- page state ----
     @abstractmethod

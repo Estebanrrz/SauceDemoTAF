@@ -3,8 +3,13 @@
 # Uses the browsers Playwright already has (PLAYWRIGHT_BROWSERS_PATH, or /opt/pw-browsers when it exists), so
 # nothing is downloaded. Without a Playwright Chromium it uses the installed Chrome (PLAYWRIGHT_CHANNEL=chrome forces it).
 # One browser process is shared by all tests; every Engine gets its own clean context.
+#
+# --device="iPhone 13" gives the context that Playwright device profile (screen size, user agent,
+# touch, pixel density). It always runs on the local Chromium: many profiles (all iPhones) ask for
+# WebKit, which is not installed and needs internet to download, so this is not real Safari.
 
 import atexit
+import difflib
 import os
 
 from playwright.sync_api import Error as PlaywrightError
@@ -17,35 +22,54 @@ _playwright = None
 _browser = None
 _headless = None
 
+DESKTOP_VIEWPORT = {'width': 1280, 'height': 900}
+PHONE_MAX_WIDTH = 600  # same breakpoint as the @media rule in app/templates/base.html
 OFFLINE_BROWSERS = '/opt/pw-browsers'
+
+
+def _get_playwright():
+    global _playwright
+    if _playwright is None:
+        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH') and os.path.isdir(OFFLINE_BROWSERS):
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = OFFLINE_BROWSERS
+        _playwright = sync_playwright().start()
+        atexit.register(_shutdown)
+    return _playwright
 
 
 def _launch(headless):
     channel = ReadConfig.getBrowserChannel()
     try:
-        return _playwright.chromium.launch(headless=headless, channel=channel)
+        return _get_playwright().chromium.launch(headless=headless, channel=channel)
     except PlaywrightError as no_chromium:
         if channel:
             raise
         # Playwright has no Chromium here: use the Chrome installed on the machine
         try:
-            return _playwright.chromium.launch(headless=headless, channel='chrome')
+            return _get_playwright().chromium.launch(headless=headless, channel='chrome')
         except PlaywrightError:
             raise no_chromium
 
 
 def _get_browser(headless):
-    global _playwright, _browser, _headless
+    global _browser, _headless
     if _browser is not None and _headless != headless:
         _shutdown()
     if _browser is None:
-        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH') and os.path.isdir(OFFLINE_BROWSERS):
-            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = OFFLINE_BROWSERS
-        _playwright = sync_playwright().start()
         _browser = _launch(headless)
         _headless = headless
-        atexit.register(_shutdown)
     return _browser
+
+
+def find_device(name):
+    """Playwright device name, ignoring case ('iphone 13' -> 'iPhone 13'). ValueError with suggestions."""
+    by_lower = {device.lower(): device for device in _get_playwright().devices}
+    wanted = name.strip().lower()
+    if wanted in by_lower:
+        return by_lower[wanted]
+    close = [by_lower[n] for n in difflib.get_close_matches(wanted, by_lower, n=5, cutoff=0.6)]
+    hint = f" Did you mean: {', '.join(close)}?" if close else ''
+    raise ValueError(f"Unknown device '{name}'.{hint} Any Playwright device name works, e.g. 'iPhone 13', 'Pixel 7'.")
 
 
 def _shutdown():
@@ -61,8 +85,15 @@ def _shutdown():
 class PlaywrightEngine(Engine):
     name = 'playwright'
 
-    def __init__(self, headless=True):
-        self._context = _get_browser(headless).new_context(viewport={'width': 1280, 'height': 900})
+    def __init__(self, headless=True, device=None):
+        browser = _get_browser(headless)
+        options = {'viewport': DESKTOP_VIEWPORT}
+        if device:
+            options = dict(_get_playwright().devices[find_device(device)])
+            options.pop('default_browser_type', None)  # always the local Chromium (see the top of this file)
+        self.device = device
+        self.phone_layout = bool(device) and options['viewport']['width'] <= PHONE_MAX_WIDTH
+        self._context = browser.new_context(**options)
         self._context.set_default_timeout(ReadConfig.getExplicitWait() * 1000)
         self._dialog_seen = False
         self.page = self._new_page()
@@ -127,6 +158,9 @@ class PlaywrightEngine(Engine):
 
     def wait_for(self, xpath):
         self._first(xpath).wait_for(state='attached')
+
+    def is_visible(self, xpath):
+        return self._first(xpath).is_visible()
 
     # ---- page state ----
     def evaluate(self, expression):

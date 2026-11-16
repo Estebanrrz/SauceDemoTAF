@@ -4,11 +4,23 @@ ENGINES = ('playwright', 'selenium')
 DEFAULT_ENGINE = 'playwright'
 
 
-def create_engine(name, headless=True):
+def resolve_device(name, device):
+    """Exact Playwright name of the device to emulate, or None for desktop. ValueError if the engine is
+    not Playwright or the device does not exist."""
+    if not device:
+        return None
+    if name != 'playwright':
+        raise ValueError(f"--device works with Playwright only (device emulation), not with '{name}'. "
+                         f"Use --engine=playwright.")
+    from Core.playwright_engine import find_device
+    return find_device(device)
+
+
+def create_engine(name, headless=True, device=None):
     if name == 'selenium':
         from Core.selenium_engine import SeleniumEngine
         return SeleniumEngine(headless=headless)
     if name == 'playwright':
         from Core.playwright_engine import PlaywrightEngine
-        return PlaywrightEngine(headless=headless)
+        return PlaywrightEngine(headless=headless, device=device)
     raise ValueError(f"Unknown engine '{name}'. Use one of: {', '.join(ENGINES)}")

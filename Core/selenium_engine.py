@@ -149,6 +149,10 @@ class SeleniumEngine(Engine):
     def wait_for(self, xpath):
         self._present(xpath)
 
+    def is_visible(self, xpath):
+        elements = self.driver.find_elements(By.XPATH, xpath)
+        return bool(elements) and elements[0].is_displayed()
+
     # ---- page state ----
     def evaluate(self, expression):
         return self.driver.execute_script(f'return ({expression});')
