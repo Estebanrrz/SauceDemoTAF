@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Swag Labs</title>
   <style>
     body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #fff; color: #132322; }
@@ -29,6 +30,22 @@
     .form_input { display: block; margin: 8px 0; padding: 8px; width: 240px; }
     .summary_info { margin: 15px 20px; }
     .login_wrapper { max-width: 300px; margin: 60px auto; }
+    .mobile-menu-button { display: none; background: none; border: 1px solid #132322; cursor: pointer;
+                          font-size: 22px; min-width: 44px; min-height: 44px; }
+    /* Phone layout. The test framework uses the same 600px (PHONE_MAX_WIDTH in Core/playwright_engine.py) */
+    @media (max-width: 600px) {
+      .bm-burger-button { display: none; }
+      .mobile-menu-button { display: inline-block; }
+      .primary_header { padding: 8px 12px; }
+      .bm-menu-wrap { width: 100%; box-sizing: border-box; }
+      .title { margin: 12px; }
+      .inventory_item, .cart_item { padding: 12px; }
+      .inventory_item_name { overflow-wrap: anywhere; }
+      .btn, .submit-button, .form_input { display: block; width: 100%; box-sizing: border-box;
+                                          min-height: 44px; margin: 8px 0; text-align: center; }
+      .login_wrapper { margin: 30px 12px; }
+      .summary_info { margin: 12px; }
+    }
   </style>
 </head>
 <body>
@@ -54,6 +71,8 @@
   </div>
 </div>
 <header class="primary_header" data-test="primary-header">
+  <button id="mobile-menu-button" class="mobile-menu-button" data-test="mobile-menu-button" aria-label="Open Menu"
+          onclick="document.querySelector('.bm-menu-wrap').setAttribute('aria-hidden','false')">&#9776;</button>
   <div class="app_logo">Swag Labs</div>
   <div id="shopping_cart_container" class="shopping_cart_container" data-test="shopping-cart-container">
     <a class="shopping_cart_link" data-test="shopping-cart-link" href="{{ url_for('cart_page') }}">&#128722;{% if cart_count %}<span class="shopping_cart_badge" data-test="shopping-cart-badge">{{ cart_count }}</span>{% endif %}</a>
