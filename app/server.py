@@ -3,14 +3,15 @@
 # It keeps what the tests rely on: same URLs, same ids / data-test attributes / CSS classes,
 # same error messages, same validation order and the same 8% tax.
 #
-# Run it alone:  python app/server.py   ->  http://127.0.0.1:5055/
+# Run it alone:  python app/server.py   ->  http://127.0.0.1:5055/  (JSON API under /api/v1/)
 # The test suite starts it by itself when nothing is listening on that port (start_if_needed).
 
-import json
 import logging
 import os
-import re
+import shutil
 import socket
+import sys
+import tempfile
 import threading
 from functools import wraps
 from urllib.parse import urlparse
@@ -18,43 +19,29 @@ from urllib.parse import urlparse
 from flask import Flask, redirect, render_template, request, session, url_for
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-DATA_DIR = os.path.join(ROOT_DIR, 'Data')
+if __package__ in (None, ''):  # run as "python app/server.py": make the app package importable
+    sys.path.insert(0, ROOT_DIR)
+
+from app import db, messages, shop_api  # noqa: E402 (needs the path above)
+from mocks.payment_mock import start_if_needed as start_payment_mock_if_needed  # noqa: E402
+from app.api import api, token_ttl_seconds  # noqa: E402
+
 DEFAULT_PORT = 5055
+DB_FILE_ENV = 'SHOP_DB_FILE'  # set by start_if_needed: the database file of the app it started
 
 app = Flask(__name__)
 app.secret_key = 'local-copy-not-a-secret'  # only signs the session cookie of this local app
+app.json.sort_keys = False  # API answers keep the field order of the code, easier to read
+app.register_blueprint(api)
+app.teardown_appcontext(db.close_db)
 
-TAX_RATE = 0.08
-LOCKED_USERS = {'locked_out_user'}
+TAX_RATE = 0.08  # shown on the overview page; the orders API applies the same rate when it charges
+CARD = 'SauceCard #31337'  # the fixed card of the shop: the payment service approves it
 
-ERR_LOCKED = 'Epic sadface: Sorry, this user has been locked out.'
-ERR_NO_MATCH = 'Epic sadface: Username and password do not match any user in this service'
-ERR_USER_REQUIRED = 'Epic sadface: Username is required'
-ERR_PASSWORD_REQUIRED = 'Epic sadface: Password is required'
+# The pages keep no shop data: users, products and carts live in the database and the pages reach
+# them only through the API (app/shop_api.py). The session cookie holds the user name and the API token.
 
-
-def load_json(name):
-    with open(os.path.join(DATA_DIR, name), encoding='utf-8') as f:
-        return json.load(f)
-
-
-def slugify(name):
-    return re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-
-
-# Products and users come from Data/*.json, the same files the tests read
-PRODUCTS = [{'slug': slugify(p['name']), 'name': p['name'], 'price': p['price'],
-             'description': f"carry.allTheThings() with the {p['name']}."}
-            for p in load_json('products.json')]
-BY_SLUG = {p['slug']: p for p in PRODUCTS}
-USERS = {name: info['password'] for name, info in load_json('users.json').items()}
-
-SORTS = {
-    'az': lambda items: sorted(items, key=lambda p: p['name']),
-    'za': lambda items: sorted(items, key=lambda p: p['name'], reverse=True),
-    'lohi': lambda items: sorted(items, key=lambda p: (p['price'], p['name'])),
-    'hilo': lambda items: sorted(items, key=lambda p: (-p['price'], p['name'])),
-}
+SORTS = ('az', 'za', 'lohi', 'hilo')  # values of the sort box; the API does the sorting
 
 
 def money(value):
@@ -64,27 +51,34 @@ def money(value):
 app.jinja_env.globals['money'] = money
 
 
-def cart():
-    return session.setdefault('cart', [])
-
-
-def cart_items():
-    return [BY_SLUG[s] for s in cart() if s in BY_SLUG]
-
-
 def login_required(view):
+    """The page needs a logged-in user, that is, an API token in the session."""
     @wraps(view)
     def wrapper(*args, **kwargs):
-        if 'user' not in session:
+        if 'api_token' not in session:
             return redirect(url_for('login'))
         return view(*args, **kwargs)
 
     return wrapper
 
 
+@app.errorhandler(shop_api.NotLoggedIn)
+def token_no_longer_valid(error):
+    """The API rejected the token of this browser: start again from the login page."""
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.errorhandler(shop_api.ApiUnavailable)
+def api_unavailable(error):
+    app.logger.error('Shop API problem: %s', error)
+    return 'The shop service is not available right now. Please try again later.', 503
+
+
 @app.context_processor
 def inject_cart():
-    return {'cart_count': len(cart())}
+    """Number on the cart badge of every page (none on the login page)."""
+    return {'cart_count': len(shop_api.cart()) if 'api_token' in session else 0}
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -94,26 +88,21 @@ def login():
 
     username = request.form.get('user-name', '')
     password = request.form.get('password', '')
-    error = None
-    if username == '':
-        error = ERR_USER_REQUIRED
-    elif password == '':
-        error = ERR_PASSWORD_REQUIRED
-    elif username in LOCKED_USERS and USERS.get(username) == password:
-        error = ERR_LOCKED
-    elif USERS.get(username) != password:
-        error = ERR_NO_MATCH
+    # The API checks everything (same checks, order and messages as before) and gives the token
+    token, error = shop_api.login(username, password)
     if error:
         return render_template('login.html', error=error, username=username)
 
+    shop_api.logout()  # this browser was already logged in: end the old token
     session.clear()
     session['user'] = username
-    session['cart'] = []
+    session['api_token'] = token  # a new login has a new, empty cart
     return redirect(url_for('inventory'))
 
 
 @app.route('/logout')
 def logout():
+    shop_api.logout()  # the token stops working in the API too, not only in this browser
     session.clear()
     return redirect(url_for('login'))
 
@@ -121,26 +110,28 @@ def logout():
 @app.route('/inventory.html')
 @login_required
 def inventory():
-    order = SORTS.get(request.args.get('sort', 'az'), SORTS['az'])
-    return render_template('inventory.html', products=order(PRODUCTS), in_cart=set(cart()))
+    sort = request.args.get('sort', 'az')
+    if sort not in SORTS:  # the page ignores an unknown value (the API would answer 400)
+        sort = 'az'
+    in_cart = {p['id'] for p in shop_api.cart()}
+    return render_template('inventory.html', products=shop_api.products(sort), in_cart=in_cart)
 
 
-@app.route('/cart/toggle/<slug>', methods=['POST'])
+@app.route('/cart/toggle/<int:product_id>', methods=['POST'])
 @login_required
-def toggle_cart(slug):
-    if slug in BY_SLUG:
-        if slug in cart():
-            cart().remove(slug)
-        else:
-            cart().append(slug)
-        session.modified = True
+def toggle_cart(product_id):
+    """The same button adds the product or, if it is already in the cart, removes it."""
+    if any(p['id'] == product_id for p in shop_api.cart()):
+        shop_api.remove_from_cart(product_id)
+    else:
+        shop_api.add_to_cart(product_id)
     return redirect(request.form.get('back') or url_for('inventory'))
 
 
 @app.route('/cart.html')
 @login_required
 def cart_page():
-    return render_template('cart.html', items=cart_items())
+    return render_template('cart.html', items=shop_api.cart())
 
 
 @app.route('/checkout-step-one.html', methods=['GET', 'POST'])
@@ -154,11 +145,11 @@ def checkout_step_one():
         postal = request.form.get('postalCode', '')
         # Fields are checked in order and only the first error is shown, like the real site
         if first == '':
-            error = 'Error: First Name is required'
+            error = messages.CHECKOUT_FIRST_NAME_REQUIRED
         elif last == '':
-            error = 'Error: Last Name is required'
+            error = messages.CHECKOUT_LAST_NAME_REQUIRED
         elif postal == '':
-            error = 'Error: Postal Code is required'
+            error = messages.CHECKOUT_POSTAL_CODE_REQUIRED
         else:
             session['customer'] = {'firstName': first, 'lastName': last, 'postalCode': postal}
             return redirect(url_for('checkout_step_two'))
@@ -168,31 +159,45 @@ def checkout_step_one():
 @app.route('/checkout-step-two.html')
 @login_required
 def checkout_step_two():
-    items = cart_items()
+    items = shop_api.cart()
     subtotal = round(sum(p['price'] for p in items), 2)
     tax = round(subtotal * TAX_RATE, 2)
-    return render_template('checkout_step_two.html', items=items,
+    return render_template('checkout_step_two.html', items=items, card=CARD,
                            subtotal=subtotal, tax=tax, total=round(subtotal + tax, 2))
 
 
 @app.route('/checkout-complete.html', methods=['GET', 'POST'])
 @login_required
 def checkout_complete():
-    if request.method == 'POST':  # Finish: the order is placed and the cart is emptied
-        session['cart'] = []
+    if request.method == 'POST':  # Finish: the order is paid through the API and the cart empties with it
+        customer = session.get('customer')
+        if not customer:
+            return redirect(url_for('checkout_step_one'))
+        order = shop_api.place_order(CARD, customer)
+        if order:  # None: the cart was already empty (e.g. Finish clicked twice), keep the first order
+            session['last_order'] = order['id']
         return redirect(url_for('checkout_complete'))
-    return render_template('checkout_complete.html')
+    return render_template('checkout_complete.html', order_number=session.get('last_order'))
 
 
 def start_if_needed(url):
     """Start the app in a background thread unless something already listens on the port of url.
-    Returns a function that stops it (it does nothing if the app was already running)."""
+    Returns a function that stops it (it does nothing if the app was already running).
+
+    The app gets a new, empty database for this run only (deleted by stop), so every run starts from
+    the same data. Set SHOP_DB to use a fixed file instead. The file in use is left in SHOP_DB_FILE,
+    so the tests (and the device runs started from this process) can read it."""
     parsed = urlparse(url)
     host, port = parsed.hostname, parsed.port or 80
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.5)
         if sock.connect_ex((host, port)) == 0:
             return lambda: None
+    token_ttl_seconds()  # a wrong TOKEN_TTL_SECONDS stops here with a clear message, before anything starts
+    stop_payment_mock = start_payment_mock_if_needed()  # the orders API needs the payment service
+    temp_dir = None if os.environ.get('SHOP_DB') else tempfile.mkdtemp(prefix='shop-db-')
+    db.init_db(app, os.path.join(temp_dir, 'shop.db') if temp_dir else db.default_path())
+    os.environ[DB_FILE_ENV] = app.config['SHOP_DB']
     from werkzeug.serving import make_server
     logging.getLogger('werkzeug').setLevel(logging.WARNING)  # one line per request would bury the output
     server = make_server(host, port, app, threaded=True)
@@ -202,11 +207,23 @@ def start_if_needed(url):
     def stop():
         server.shutdown()
         thread.join(timeout=5)
+        stop_payment_mock()
+        os.environ.pop(DB_FILE_ENV, None)
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     return stop
 
 
 def main():
+    try:
+        ttl = token_ttl_seconds()
+    except ValueError as error:
+        sys.exit(f'Configuration error: {error}')  # exit code 1, message on stderr
+    start_payment_mock_if_needed()
+    db.init_db(app, db.default_path())
+    print(f"Database: {app.config['SHOP_DB']}")
+    print(f'API tokens expire after {ttl} seconds (TOKEN_TTL_SECONDS)')
     app.run(host='127.0.0.1', port=int(os.environ.get('APP_PORT', DEFAULT_PORT)))
 
 

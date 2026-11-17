@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<span class="title" data-test="title">Checkout: Complete!</span>
+<span class="title" role="heading" aria-level="1" data-test="title">Checkout: Complete!</span>
 <div id="checkout_complete_container" class="checkout_complete_container" data-test="checkout-complete-container"
      style="margin:20px; text-align:center;">
   <h2 class="complete-header" data-test="complete-header">Thank you for your order!</h2>
   <div class="complete-text" data-test="complete-text">
     Your order has been dispatched, and will arrive just as fast as the pony can get there!
   </div>
+  {% if order_number %}
+  <div class="complete-order-number" data-test="order-number">Order #{{ order_number }}</div>
+  {% endif %}
   <a class="btn btn_primary" id="back-to-products" data-test="back-to-products"
      href="{{ url_for('inventory') }}">Back Home</a>
 </div>

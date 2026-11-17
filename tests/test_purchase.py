@@ -1,4 +1,6 @@
 # Purchase scenarios (end to end)
+import re
+
 import pytest
 
 from Utilities.testData import TestData
@@ -54,6 +56,8 @@ class TestPurchase:
         assert pages.overview.GetTotal() == f'Total: ${total:.2f}'
         pages.overview.ClickFinishButton()
         assert pages.complete.ThankYouForYourOrderIsDisplayed() is True
+        order_number = pages.complete.GetOrderNumber()
+        assert re.fullmatch(r'Order #\d+', order_number), f'Unexpected order number: {order_number!r}'
         assert not pages.inventory.IsCartBadgeDisplayed(), 'The cart counter is still visible'
         pages.inventory.ClickShoppingCartButton()
         assert pages.cart.GetItemNames() == [], 'The cart is not empty'

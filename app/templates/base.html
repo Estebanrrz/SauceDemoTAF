@@ -75,7 +75,8 @@
           onclick="document.querySelector('.bm-menu-wrap').setAttribute('aria-hidden','false')">&#9776;</button>
   <div class="app_logo">Swag Labs</div>
   <div id="shopping_cart_container" class="shopping_cart_container" data-test="shopping-cart-container">
-    <a class="shopping_cart_link" data-test="shopping-cart-link" href="{{ url_for('cart_page') }}">&#128722;{% if cart_count %}<span class="shopping_cart_badge" data-test="shopping-cart-badge">{{ cart_count }}</span>{% endif %}</a>
+    <a class="shopping_cart_link" data-test="shopping-cart-link" aria-label="Shopping cart"
+       href="{{ url_for('cart_page') }}">&#128722;{% if cart_count %}<span class="shopping_cart_badge" data-test="shopping-cart-badge">{{ cart_count }}</span>{% endif %}</a>
   </div>
 </header>
 {% endblock %}

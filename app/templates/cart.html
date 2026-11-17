@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<span class="title" data-test="title">Your Cart</span>
+<span class="title" role="heading" aria-level="1" data-test="title">Your Cart</span>
 <div class="cart_contents_container">
   <div class="cart_list" data-test="cart-list">
     <div class="cart_quantity_label" data-test="cart-quantity-label">QTY</div>
@@ -13,9 +13,10 @@
         <div class="inventory_item_desc" data-test="inventory-item-desc">{{ p.description }}</div>
         <div class="item_pricebar">
           <div class="inventory_item_price" data-test="inventory-item-price">${{ money(p.price) }}</div>
-          <form method="post" action="{{ url_for('toggle_cart', slug=p.slug) }}" style="display:inline;">
+          <form method="post" action="{{ url_for('toggle_cart', product_id=p.id) }}" style="display:inline;">
             <input type="hidden" name="back" value="{{ request.path }}">
             <button class="btn btn_secondary btn_small cart_button" id="remove-{{ p.slug }}"
+                    aria-label="Remove {{ p.name }} from cart"
                     data-test="remove-{{ p.slug }}">Remove</button>
           </form>
         </div>

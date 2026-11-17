@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<span class="title" data-test="title">Checkout: Overview</span>
+<span class="title" role="heading" aria-level="1" data-test="title">Checkout: Overview</span>
 <div class="cart_list" data-test="cart-list">
   <div class="cart_quantity_label" data-test="cart-quantity-label">QTY</div>
   <div class="cart_desc_label" data-test="cart-desc-label">Description</div>
@@ -19,7 +19,7 @@
 </div>
 <div class="summary_info" data-test="checkout-summary">
   <div class="summary_info_label" data-test="payment-info-label">Payment Information:</div>
-  <div class="summary_value_label" data-test="payment-info-value">SauceCard #31337</div>
+  <div class="summary_value_label" data-test="payment-info-value">{{ card }}</div>
   <div class="summary_info_label" data-test="shipping-info-label">Shipping Information:</div>
   <div class="summary_value_label" data-test="shipping-info-value">Free Pony Express Delivery!</div>
   <div class="summary_info_label" data-test="total-info-label">Price Total</div>

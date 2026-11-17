@@ -4,9 +4,9 @@
 <div class="login_wrapper">
   <div class="app_logo" style="text-align:center; margin-bottom: 20px;">Swag Labs</div>
   <form method="post" action="{{ url_for('login') }}">
-    <input class="form_input input_error" id="user-name" name="user-name" data-test="username"
+    <input class="form_input input_error" id="user-name" name="user-name" data-test="username" aria-label="Username"
            type="text" placeholder="Username" value="{{ username }}" autocomplete="off">
-    <input class="form_input input_error" id="password" name="password" data-test="password"
+    <input class="form_input input_error" id="password" name="password" data-test="password" aria-label="Password"
            type="password" placeholder="Password" autocomplete="off">
     {% if error %}
     <div class="error-message-container error">

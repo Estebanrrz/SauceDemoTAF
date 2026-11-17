@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="header_secondary_container" style="display:flex; justify-content:space-between; align-items:center;">
-  <span class="title" data-test="title">Products</span>
+  <span class="title" role="heading" aria-level="1" data-test="title">Products</span>
   <select class="product_sort_container" data-test="product-sort-container"
           style="margin-right:20px;" aria-label="Sort products">
     <option value="az">Name (A to Z)</option>
@@ -20,13 +20,15 @@
       </div>
       <div class="pricebar">
         <div class="inventory_item_price" data-test="inventory-item-price">${{ money(p.price) }}</div>
-        <form method="post" action="{{ url_for('toggle_cart', slug=p.slug) }}" style="display:inline;">
+        <form method="post" action="{{ url_for('toggle_cart', product_id=p.id) }}" style="display:inline;">
           <input type="hidden" name="back" value="{{ request.full_path if request.query_string else request.path }}">
-          {% if p.slug in in_cart %}
+          {% if p.id in in_cart %}
           <button class="btn btn_secondary btn_small btn_inventory" id="remove-{{ p.slug }}"
+                  aria-label="Remove {{ p.name }} from cart"
                   data-test="remove-{{ p.slug }}">Remove</button>
           {% else %}
           <button class="btn btn_primary btn_small btn_inventory" id="add-to-cart-{{ p.slug }}"
+                  aria-label="Add {{ p.name }} to cart"
                   data-test="add-to-cart-{{ p.slug }}">Add to cart</button>
           {% endif %}
         </form>
