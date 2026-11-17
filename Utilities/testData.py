@@ -27,6 +27,20 @@ class TestData:
         return list(_load('users.json'))
 
     @staticmethod
+    def is_locked(username):
+        """True for users marked "locked": true in Data/users.json (they cannot log in)."""
+        return bool(_load('users.json')[username].get('locked', False))
+
+    @staticmethod
+    def active_users():
+        """Users that can log in."""
+        return [name for name in TestData.users() if not TestData.is_locked(name)]
+
+    @staticmethod
+    def locked_users():
+        return [name for name in TestData.users() if TestData.is_locked(name)]
+
+    @staticmethod
     def products():
         """Catalog as {name: price}, in the order of Data/products.json."""
         return {p['name']: p['price'] for p in _load('products.json')}

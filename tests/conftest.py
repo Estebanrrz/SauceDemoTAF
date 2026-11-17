@@ -1,8 +1,8 @@
-# Fixtures: local app, engine and page objects.
+# Fixtures: engine and page objects.
 #
-# The suite does not need anything running before it: if nothing is listening on the configured
-# port it starts the local app (app/server.py) in a thread, and then drives it with the engine
-# chosen with --engine.
+# The suite does not need anything running before it: base_url (root conftest.py, shared with
+# tests_api/) starts the local app (app/server.py) in a thread if nothing is listening on the
+# configured port, and then these fixtures drive it with the engine chosen with --engine.
 
 from types import SimpleNamespace
 
@@ -18,16 +18,6 @@ from PageObjects.OverviewPage import OverviewPage
 from PageObjects.ShoppingCartPage import ShoppingCartPage
 from Utilities.readProperties import ReadConfig
 from Utilities.testData import TestData
-
-
-@pytest.fixture(scope='session')
-def base_url():
-    """URL of the app under test. Starts the local app if it is not already running."""
-    from app.server import start_if_needed
-    url = ReadConfig.getApplicationUrl()
-    stop = start_if_needed(url)
-    yield url
-    stop()
 
 
 @pytest.fixture(scope='session')

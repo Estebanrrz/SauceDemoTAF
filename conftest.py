@@ -1,14 +1,18 @@
-# Root conftest: registers the --engine and --device options.
+# Root conftest: registers the --engine and --device options and the fixtures shared by tests/ (UI)
+# and tests_api/ (API): base_url starts the local app when nothing is running.
 #
 #   pytest                                Playwright (default), headless
 #   pytest --engine=selenium              same tests on Selenium
 #   pytest --device="iPhone 13"           Playwright emulating a phone (any Playwright device name)
 #   pytest --device="iPhone 13, Pixel 7"  the suite once per device, one after the other
 #   pytest --device="iPhone 13, Pixel 7" --parallel   the same, all devices at the same time
+#   pytest tests_api                      only the API tests (no browser)
 #
 # Every run writes its own HTML report unless --html is given: reports/report.html (Playwright,
-# desktop), reports/report-selenium.html, reports/report-iphone-13.html (--device="iPhone 13")...
+# desktop), reports/report-selenium.html, reports/report-iphone-13.html (--device="iPhone 13"),
+# reports/report-api.html (only tests_api)...
 
+import json
 import os
 import re
 import subprocess
@@ -21,9 +25,24 @@ import pytest
 from Core.factory import DEFAULT_ENGINE, ENGINES, resolve_device
 from Utilities.readProperties import ReadConfig
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+API_TESTS_DIR = os.path.join(ROOT_DIR, 'tests_api')
+
 # Set by the parent run for every device but the first: the all_devices tests already check every
-# device by themselves, so they run once per pytest call and are deselected in the other runs
+# device by themselves, and the API tests use no browser, so they run once per pytest call and are
+# deselected in the other runs
 ALREADY_RAN_ENV = 'TAF_ALL_DEVICES_TESTS_RAN'
+RUN_ONCE_MARKERS = ('all_devices', 'api')
+
+
+@pytest.fixture(scope='session')
+def base_url():
+    """URL of the app under test. Starts the local app if it is not already running."""
+    from app.server import start_if_needed
+    url = ReadConfig.getApplicationUrl()
+    stop = start_if_needed(url)
+    yield url
+    stop()
 
 
 def pytest_addoption(parser):
@@ -49,9 +68,32 @@ def pytest_addoption(parser):
     )
 
 
-def report_path(engine, device):
-    """reports/report.html for Playwright on desktop; otherwise the engine or device goes in the name."""
-    name = device or (engine if engine != DEFAULT_ENGINE else '')
+def only_api_tests(config):
+    """True when every path given to pytest is inside tests_api/ (e.g. pytest tests_api)."""
+    paths = [os.path.abspath(os.path.join(config.invocation_params.dir, arg.split('::')[0]))
+             for arg in config.args]
+    return bool(paths) and all(os.path.commonpath([path, API_TESTS_DIR]) == API_TESTS_DIR for path in paths)
+
+
+def includes_api_tests(config):
+    """True when the API tests are part of this run (pytest, pytest tests_api, pytest . ...)."""
+    paths = [os.path.abspath(os.path.join(config.invocation_params.dir, arg.split('::')[0]))
+             for arg in config.args]
+    return any(path == API_TESTS_DIR or API_TESTS_DIR.startswith(path + os.sep) or
+               path.startswith(API_TESTS_DIR + os.sep) for path in paths)
+
+
+def run_label(config, engine, device):
+    """Name of this run in the summary table, e.g. 'UI Playwright, iPhone 13' or 'API tests'."""
+    if only_api_tests(config):
+        return 'API tests'
+    label = f"UI {engine.capitalize()}, {device or 'desktop'}"
+    return label + ' + API tests' if includes_api_tests(config) else label
+
+
+def report_path(engine, device, api_only=False):
+    """reports/report.html for Playwright on desktop; otherwise the engine, device or 'api' goes in the name."""
+    name = 'api' if api_only else device or (engine if engine != DEFAULT_ENGINE else '')
     slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
     return f'reports/report-{slug}.html' if slug else 'reports/report.html'
 
@@ -96,11 +138,12 @@ def pytest_cmdline_main(config):
     # The last --device wins, so the same command runs with only that device
     commands = {device: [sys.executable, '-m', 'pytest', *config.invocation_params.args, f'--device={device}']
                 for device in devices}
-    envs = {device: dict(os.environ, **({ALREADY_RAN_ENV: devices[0]} if device != devices[0] else {}))
-            for device in devices}
     parallel = config.getoption('--parallel')
     from app.server import start_if_needed
     stop_app = start_if_needed(ReadConfig.getApplicationUrl())  # one app for all runs: no race for the port
+    # After starting the app: the runs inherit SHOP_DB_FILE (its database file)
+    envs = {device: dict(os.environ, **({ALREADY_RAN_ENV: devices[0]} if device != devices[0] else {}))
+            for device in devices}
     started = time.monotonic()
     try:
         run = run_at_the_same_time if parallel else run_one_after_the_other
@@ -161,15 +204,19 @@ def run_at_the_same_time(commands, envs, cwd):
     return {device: results[device] for device in commands}
 
 
+def runs_once(item):
+    return any(item.get_closest_marker(marker) for marker in RUN_ONCE_MARKERS)
+
+
 def pytest_collection_modifyitems(config, items):
     """In a device run started by a several-devices run (not the first one), leave out the
-    all_devices tests: the first device run already ran them."""
+    all_devices and api tests: the first device run already ran them."""
     first_device = os.environ.get(ALREADY_RAN_ENV)
     if not first_device:
         return
-    deselected = [item for item in items if item.get_closest_marker('all_devices')]
+    deselected = [item for item in items if runs_once(item)]
     if deselected:
-        items[:] = [item for item in items if not item.get_closest_marker('all_devices')]
+        items[:] = [item for item in items if not runs_once(item)]
         config.hook.pytest_deselected(items=deselected)
 
 
@@ -177,14 +224,52 @@ def pytest_collection_modifyitems(config, items):
 def pytest_configure(config):
     engine = config.getoption('--engine') or ReadConfig.getDefaultEngine()
     if hasattr(config.option, 'htmlpath') and not config.option.htmlpath:
-        config.option.htmlpath = report_path(engine, config.option.device)
+        config.option.htmlpath = report_path(engine, config.option.device, only_api_tests(config))
 
 
 def pytest_report_header(config):
+    if only_api_tests(config):
+        return [f'API tests (no browser), base url: {ReadConfig.getApplicationUrl()}']
     engine = config.getoption('--engine') or ReadConfig.getDefaultEngine()
     device = config.getoption('--device') or 'desktop'
     header = [f'engine: {engine}, device: {device}, base url: {ReadConfig.getApplicationUrl()}, '
               f'headless: {ReadConfig.isHeadless()}']
     if os.environ.get(ALREADY_RAN_ENV):
-        header.append(f'all_devices tests: left out (deselected), they already ran with {os.environ[ALREADY_RAN_ENV]}')
+        header.append(f'all_devices and api tests: left out (deselected), they already ran with '
+                      f'{os.environ[ALREADY_RAN_ENV]}')
     return header
+
+
+def pytest_sessionstart(session):
+    session.config._taf_started = time.monotonic()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Save the counts of this run in reports/summary-<run>.json (next to its HTML report). run_tests.sh
+    prints all of them as one table at the end (Utilities/run_summary.py)."""
+    if config.option.collectonly or not hasattr(config, '_taf_started'):
+        return
+    engine = config.getoption('--engine') or ReadConfig.getDefaultEngine()
+    device = config.getoption('--device')
+    api_only = only_api_tests(config)
+    html = report_path(engine, device, api_only)
+    stats = terminalreporter.stats
+    summary = {
+        'label': run_label(config, engine, device),
+        'passed': len(stats.get('passed', [])),
+        'failed': len(stats.get('failed', [])),
+        'errors': len(stats.get('error', [])),
+        'skipped': len(stats.get('skipped', [])),
+        'deselected': len(stats.get('deselected', [])),
+        'later_device_run': bool(os.environ.get(ALREADY_RAN_ENV)),  # deselected = not repeated on this device
+        'seconds': round(time.monotonic() - config._taf_started, 1),
+        'report': getattr(config.option, 'htmlpath', None) or html,
+        'exit_status': int(exitstatus),
+        'finished_at': time.time(),
+    }
+    name = os.path.basename(html).replace('report', 'summary', 1).replace('.html', '.json')  # report-api.html -> summary-api.json
+    path = os.path.join(ROOT_DIR, 'reports', name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(summary, f, indent=2)
