@@ -37,7 +37,7 @@ def run_app(settings, timeout=30):
 def separate_app(settings, startup_seconds=20):
     """Run python app/server.py with these extra environment variables; yields its base URL."""
     port = free_port()
-    with tempfile.TemporaryDirectory(prefix='separate-app-') as folder:
+    with tempfile.TemporaryDirectory(prefix='separate-app-', ignore_cleanup_errors=True) as folder:
         env = dict(os.environ, APP_PORT=str(port), SHOP_DB=os.path.join(folder, 'shop.db'), **settings)
         log = open(os.path.join(folder, 'server.log'), 'w')
         process = subprocess.Popen([sys.executable, SERVER], env=env, stdout=log, stderr=subprocess.STDOUT)
