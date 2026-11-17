@@ -51,6 +51,22 @@ def _chromedriver_path(chrome_binary):
     return None  # Selenium Manager decides
 
 
+def _is_gone(element):
+    """True once the element left the page, like EC.staleness_of. While the old page is being unloaded,
+    chromedriver sometimes reports "Node with given id does not belong to the document" (a generic
+    WebDriverException) instead of StaleElementReferenceException. It means the same thing: the click
+    already worked and the old page is going away. Treating it as an error made some tests fail at random."""
+    try:
+        element.is_enabled()
+        return False
+    except StaleElementReferenceException:
+        return True
+    except WebDriverException as error:
+        if 'does not belong to the document' in str(error):
+            return True
+        raise
+
+
 class SeleniumEngine(Engine):
     name = 'selenium'
 
@@ -119,7 +135,7 @@ class SeleniumEngine(Engine):
         """Selenium does not always wait for the page a click opens (form post, redirect) and the next
         click would cancel it. Playwright waits by itself, so do the same here: wait until the clicked
         element is gone and the new page has finished loading."""
-        self._wait().until(EC.staleness_of(clicked))
+        self._wait().until(lambda d: _is_gone(clicked))
         self._wait().until(lambda d: d.execute_script('return document.readyState') == 'complete')
 
     def fill(self, xpath, text):
