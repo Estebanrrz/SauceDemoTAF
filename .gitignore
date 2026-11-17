@@ -15,6 +15,11 @@ dist/
 htmlcov/
 .coverage
 
+# SQLite database of the local app (created from Data/*.json when the app starts)
+*.db
+*.db-wal
+*.db-shm
+
 # Optional local chromedriver (see README); never commit binaries
 Drivers/
 *.exe

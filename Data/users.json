@@ -1,6 +1,6 @@
 {
   "standard_user": {"password": "secret_sauce", "note": "Happy-path user"},
   "problem_user": {"password": "secret_sauce", "note": "Intentionally buggy UI on the real site"},
-  "locked_out_user": {"password": "secret_sauce", "note": "Cannot log in"},
+  "locked_out_user": {"password": "secret_sauce", "locked": true, "note": "Cannot log in"},
   "performance_glitch_user": {"password": "secret_sauce", "note": "Slow responses"}
 }
