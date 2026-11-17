@@ -24,3 +24,11 @@ def create_engine(name, headless=True, device=None):
         from Core.playwright_engine import PlaywrightEngine
         return PlaywrightEngine(headless=headless, device=device)
     raise ValueError(f"Unknown engine '{name}'. Use one of: {', '.join(ENGINES)}")
+
+
+def finish_thread(name):
+    """Call at the end of a thread (not the main one) that created engines: frees what that thread started.
+    Playwright keeps one browser per thread; Selenium has nothing to free (quit() closes everything)."""
+    if name == 'playwright':
+        from Core.playwright_engine import close_this_thread
+        close_this_thread()

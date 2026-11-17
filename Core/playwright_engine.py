@@ -3,6 +3,9 @@
 # Uses the browsers Playwright already has (PLAYWRIGHT_BROWSERS_PATH, or /opt/pw-browsers when it exists), so
 # nothing is downloaded. Without a Playwright Chromium it uses the installed Chrome (PLAYWRIGHT_CHANNEL=chrome forces it).
 # One browser process is shared by all tests; every Engine gets its own clean context.
+# Playwright's sync API only works in the thread that started it, so every thread gets its own Playwright
+# and browser. The main thread works as always (closed at exit); a test that drives browsers from other
+# threads calls close_this_thread() at the end of each of them (Core/factory.py: finish_thread).
 #
 # --device="iPhone 13" gives the context that Playwright device profile (screen size, user agent,
 # touch, pixel density). It always runs on the local Chromium: many profiles (all iPhones) ask for
@@ -11,6 +14,7 @@
 import atexit
 import difflib
 import os
+import threading
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
@@ -18,9 +22,7 @@ from playwright.sync_api import sync_playwright
 from Core.engine import Engine
 from Utilities.readProperties import ReadConfig
 
-_playwright = None
-_browser = None
-_headless = None
+_local = threading.local()  # per thread: playwright, browser, headless
 
 DESKTOP_VIEWPORT = {'width': 1280, 'height': 900}
 PHONE_MAX_WIDTH = 600  # same breakpoint as the @media rule in app/templates/base.html
@@ -28,13 +30,13 @@ OFFLINE_BROWSERS = '/opt/pw-browsers'
 
 
 def _get_playwright():
-    global _playwright
-    if _playwright is None:
+    if getattr(_local, 'playwright', None) is None:
         if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH') and os.path.isdir(OFFLINE_BROWSERS):
             os.environ['PLAYWRIGHT_BROWSERS_PATH'] = OFFLINE_BROWSERS
-        _playwright = sync_playwright().start()
-        atexit.register(_shutdown)
-    return _playwright
+        _local.playwright = sync_playwright().start()
+        if threading.current_thread() is threading.main_thread():
+            atexit.register(close_this_thread)
+    return _local.playwright
 
 
 def _launch(headless):
@@ -52,13 +54,12 @@ def _launch(headless):
 
 
 def _get_browser(headless):
-    global _browser, _headless
-    if _browser is not None and _headless != headless:
-        _shutdown()
-    if _browser is None:
-        _browser = _launch(headless)
-        _headless = headless
-    return _browser
+    if getattr(_local, 'browser', None) is not None and _local.headless != headless:
+        close_this_thread()
+    if getattr(_local, 'browser', None) is None:
+        _local.browser = _launch(headless)
+        _local.headless = headless
+    return _local.browser
 
 
 def find_device(name):
@@ -72,14 +73,14 @@ def find_device(name):
     raise ValueError(f"Unknown device '{name}'.{hint} Any Playwright device name works, e.g. 'iPhone 13', 'Pixel 7'.")
 
 
-def _shutdown():
-    global _playwright, _browser
-    if _browser is not None:
-        _browser.close()
-        _browser = None
-    if _playwright is not None:
-        _playwright.stop()
-        _playwright = None
+def close_this_thread():
+    """Close the browser and stop Playwright of the current thread (nothing if it has none)."""
+    if getattr(_local, 'browser', None) is not None:
+        _local.browser.close()
+        _local.browser = None
+    if getattr(_local, 'playwright', None) is not None:
+        _local.playwright.stop()
+        _local.playwright = None
 
 
 class PlaywrightEngine(Engine):

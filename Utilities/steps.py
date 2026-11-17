@@ -7,10 +7,14 @@
 # Only the outermost step is logged: "log in as standard_user" does not also log the typing and
 # the click it is made of. Passwords are never logged: an argument named "password" is replaced
 # by '********' plus a hint that tells the cases apart (correct, wrong, only spaces, empty).
+#
+# Thread safe: every thread keeps its own nesting, and step_prefix('standard_user') marks the steps of a
+# thread ("Step: [standard_user] add ...") so tests that run two users at the same time stay readable.
 
 import functools
 import inspect
 import logging
+import threading
 from contextlib import contextmanager
 
 from Utilities.testData import TestData
@@ -18,7 +22,7 @@ from Utilities.testData import TestData
 logger = logging.getLogger('steps')
 logger.setLevel(logging.INFO)
 
-_depth = 0
+_local = threading.local()  # per thread: depth (nesting of steps) and prefix
 MASK = "'********'"
 
 
@@ -40,14 +44,26 @@ def mask_password(password, username=None):
 @contextmanager
 def step_scope(label):
     """Log the label when it is a top-level step and keep nested steps quiet."""
-    global _depth
-    if _depth == 0:
-        logger.info('Step: %s', label)
-    _depth += 1
+    depth = getattr(_local, 'depth', 0)
+    if depth == 0:
+        prefix = getattr(_local, 'prefix', None)
+        logger.info('Step: %s%s', f'[{prefix}] ' if prefix else '', label)
+    _local.depth = depth + 1
     try:
         yield
     finally:
-        _depth -= 1
+        _local.depth = depth
+
+
+@contextmanager
+def step_prefix(prefix):
+    """Start the steps of this thread with [prefix], e.g. the user a thread acts as."""
+    previous = getattr(_local, 'prefix', None)
+    _local.prefix = prefix
+    try:
+        yield
+    finally:
+        _local.prefix = previous
 
 
 def step(template):
