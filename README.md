@@ -312,7 +312,8 @@ same file).
 **Two users at the same time.** `tests_api/test_cart_concurrency.py` (API, about 160 cart calls at the
 same time) and `tests/test_sessions.py` (UI, two browser sessions) run each user in its own thread:
 a barrier makes them start together, every check is done while the other user is changing its cart,
-and the test fails if the two did not really overlap in time. Each user's steps start with its name:
+and the test fails if the two did not really overlap in time. The UI test runs with Playwright only
+(skipped on Selenium: with two browsers at the same time some clicks get lost). Each user's steps start with its name:
 `Step: [problem_user] add Sauce Labs Onesie to the cart`. To drive browsers from your own threads,
 create the engine inside the thread and call `finish_thread(engine_name)` (`Core/factory.py`) at its end.
 

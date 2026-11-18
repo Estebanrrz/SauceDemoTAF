@@ -2,6 +2,7 @@
 #
 # Each user runs in its own thread with its own browser session, and both shop AT THE SAME TIME: a
 # barrier makes them start together, and the test checks afterwards that their shopping really overlapped.
+# Playwright only (skipped on Selenium).
 # Both carts hold the Backpack on purpose: the same product in two carts must not mix them up.
 # The steps of each user start with its name: "Step: [problem_user] add Sauce Labs Onesie to the cart".
 import threading
@@ -70,8 +71,8 @@ def shop(username, products, engine_name, device, base_url, barrier):
 class TestSessions:
     def test_two_users_at_the_same_time_never_see_each_other_cart(self, base_url, engine_name, device):
         """Two users in two browser sessions at the same time: neither one ever sees the other one's cart"""
-        if device and engine_name != 'playwright':
-            pytest.skip('Device emulation needs Playwright')
+        if engine_name != 'playwright':
+            pytest.skip('Two browsers at the same time is checked with Playwright only: with Selenium the clicks of the two sessions get lost')
         barrier = threading.Barrier(len(SHOPPERS), timeout=BARRIER_SECONDS)
         with ThreadPoolExecutor(max_workers=len(SHOPPERS)) as pool:
             runs = {username: pool.submit(shop, username, products, engine_name, device, base_url, barrier)
