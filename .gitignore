@@ -1,5 +1,6 @@
 # Dependencies / virtual environments
 .venv/
+.venv-perf/
 venv/
 node_modules/
 
