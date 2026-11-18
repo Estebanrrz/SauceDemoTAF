@@ -5,7 +5,8 @@ the Page Object pattern. The tests run with **pytest** and can use two browser e
 (default) and **Selenium**, chosen with one option. They run against a local copy of the site, so no
 internet is needed. With Playwright they can also run as a phone or tablet (`--device="iPhone 13"`),
 see "Mobile". The local copy also has a **JSON API** backed by an **SQLite** database, tested by the
-API tests in `tests_api/` (no browser), see "API".
+API tests in `tests_api/` (no browser), see "API". Performance tests with **Locust** against the same API
+live in `perf/`, see "Performance".
 
 **46 UI tests**: the 31 scenarios the project already had, 6 new ones (9 test cases, because the
 sorting scenario runs once per sort option), `tests/test_sessions.py` (two users in two browser sessions
@@ -326,6 +327,166 @@ Adding an API test:
 3. Take the expected data from `Data/*.json` (`TestData`), not from the app code: the tests treat the app as a
    black box.
 
+## Performance
+
+`perf/` load-tests the JSON API of the local app with [Locust](https://locust.io/). One command prepares
+everything, starts a fresh copy of the app, runs a load profile and stops the app:
+
+```bash
+./perf/run.sh smoke             # 45 s, 3 users: is it working?
+./perf/run.sh --list            # the profiles, with duration and peak users
+./perf/run.sh normal            # or stress, spike, soak
+./perf/run.sh smoke --config my.toml   # another config file with the same layout
+./perf/run.sh smoke --threshold p95_ms=1   # override a limit for this run (this one cannot pass: exit 1)
+```
+
+- **Own environment.** Locust is installed in `.venv-perf` (git-ignored), created by `perf/run.sh` the first
+  time from `perf/requirements.txt` (every run checks it again with pip, which is quick when nothing
+  changed), so the test environment `.venv` is not changed. The packages shared
+  with the tests (Flask, requests...) keep the versions of `requirements.txt`; that is also why Locust is
+  pinned to 2.46.6 (2.47.0 needs a newer requests than the one the tests pin).
+- **Own app.** The run starts `python app/server.py` with its own payment mock, both on free ports, and a
+  new temporary database, so it never touches `app/shop.db` or an app you have open. The app is stopped
+  and the database deleted at the end, also after an error, Ctrl+C or SIGTERM.
+- **Exit code:** 0 every threshold passed; 1 a threshold failed; 2 the run could not be done (a mistake in
+  the config or in a `--threshold`, the app did not start or stopped during the run, Locust failed or wrote
+  no results, a bug in the scenario code); 130 stopped by Ctrl+C or SIGTERM (the part that ran is still
+  analysed and shown, but the exit code stays 130).
+
+Everything you may want to change is in **`perf/config.toml`**, not in the code: profiles and their
+thresholds, scenario shares, think times, accounts, checkout data, the declined-card share, the token
+lifetime, the request and stop timeouts and how often progress is printed. A mistake in the file stops the
+run before the app starts, with the place of the mistake.
+
+| Profile | Load | Length |
+|---|---|---|
+| `smoke` | 3 users, one per scenario | 45 s |
+| `normal` | ramp to 15 users, hold | 2 min |
+| `stress` | steps of 15, 30, 50, 80 users, 45 s each | 3 min |
+| `spike` | 10 users, then 80 almost at once for 30 s, then 10 again | 2 min |
+| `soak` | 15 users | 8 min |
+
+A profile is a list of stages `{ duration, users, spawn_rate }`: in each stage the number of users moves
+to `users`, `spawn_rate` per second, and the stage lasts `duration` seconds (the ramp included).
+
+**Scenarios** (`perf/locustfile.py`), all through the real API, shares 5:3:2 by default:
+
+- **browse:** catalogue in a random sort, then 1 to 3 products opened
+- **cart:** catalogue, 2 to 4 products added, cart read, one removed, cart emptied
+- **buy:** catalogue, 1 to 3 products added, order paid through the payment mock, order read back. Every
+  10th order of the run (the 1st, 11th, 21st...) pays with `SauceCard #DECLINED`: the expected answer
+  is 402 `payment_declined`, which counts as a success, and the cart must still hold the same products.
+
+Every user logs in once and keeps its token (a login costs about 40 ms of password hashing on purpose),
+logs in again 30 s before the token expires (the soak runs longer than a token lives) and logs out when
+it stops. A request is an **error** only when the answer is wrong: unexpected status code, no JSON, or
+wrong data (catalogue different from `Data/products.json`, wrong sort order, cart with the wrong
+products, order total that is not subtotal + 8% tax). After an error the user stops that flow and starts
+the next one with a new login. A request that gets no answer within 10 s (`request_timeout`) is an error too.
+
+### Results and thresholds
+
+Every run leaves a folder `reports/perf/<profile>-<date>-<time>/`:
+
+- `results.json`: every request of the run (time, endpoint, response time, error) and the users over time.
+  It is **the single source**: `perf/analysis.py` computes one summary from it, and the console table, the
+  HTML report and the threshold checks are all made from that summary, so they always show the same numbers.
+- `report.html`: one file with no scripts or external files, so it opens offline: verdict, the table,
+  every threshold with its limit, measured value and how much of the limit it uses, the errors, and charts
+  of users, requests/s, p95 and errors over time.
+- `app.log`: what the app printed.
+
+The end of a smoke run (one row per endpoint as `METHOD name`, then the total; dashed lines left out):
+
+```
+=== Results of profile smoke: 45.2 s (reports/perf/smoke-20261118-135931/results.json)
+Endpoint                      Requests    Errors   Error %    p50 ms    p95 ms    p99 ms     Req/s
+POST /auth/login                     3         0      0.00      99.8     120.3     120.3      0.07
+GET /products                       70         0      0.00       5.7       8.9      10.2      1.55
+...
+POST /auth/logout                    3         0      0.00      18.8      27.3      27.3      0.07
+TOTAL                              355         0      0.00       6.9      15.5      68.4      7.86
+=== Thresholds of profile smoke: 36 checks, all passed
+  Closest to their limit: POST /auth/login p95_ms 120.3 of 500 (24%); POST /auth/login p99_ms 120.3 of 500 (24%); total p99_ms 68.4 of 300 (23%)
+=== HTML report: reports/perf/smoke-20261118-135931/report.html
+=== Result: PASSED (every threshold passed), exit code 0
+```
+
+- **Error %** = errors / requests, rounded *up* to 2 decimals (one error never shows as 0.00).
+- **p50 / p95 / p99**: nearest-rank percentiles of the measured times (a real measured value), 0.1 ms.
+  With few requests (3 logins, ~20 orders in smoke) p95 and p99 are simply the slowest request.
+- **Req/s** = requests / duration of the run.
+
+**Thresholds** are per profile in `perf/config.toml` (`[profiles.<name>.thresholds]`): `total`,
+`each_endpoint` (every endpoint that had requests) and `endpoints."POST /orders"` (one endpoint, on top of
+`each_endpoint`), with the limits `p50_ms`, `p95_ms`, `p99_ms` and `error_pct`. `total.error_pct` is
+required, so real errors can always fail a run. An endpoint with its own limits that got no requests at all
+fails too. The checks compare exactly the numbers shown. When one fails the run ends with exit code 1 and
+says which (here `./perf/run.sh normal --threshold p95_ms=1`):
+
+```
+=== Thresholds of profile normal: 36 checks, 1 FAILED
+  FAILED  total p95_ms: measured 17.8 ms > limit 1 ms
+...
+=== Result: FAILED (thresholds failed, see FAILED above), exit code 1
+```
+
+`--threshold [scope:]metric=value` changes a limit for one run (repeatable): `--threshold p95_ms=1` (the
+total), `--threshold each_endpoint:p99_ms=50`, `--threshold "POST /orders:error_pct=0"`. To look at a past
+run again, with the same or other limits (writes `report-reanalysed.html`, never the run's own report;
+exit code 0 all passed, 1 a threshold failed, 2 no usable results file or config):
+
+```bash
+python3 perf/analysis.py reports/perf/<run>/results.json [--threshold p95_ms=5]
+```
+
+**The limits have headroom on purpose.** The numbers depend on the machine: Locust and the app share its
+CPUs and the app runs on Flask's development server. They catch any real error and a clearly slower endpoint,
+not the run-to-run noise measured during calibration (see below). Use the numbers to compare runs on the same
+machine, not as the capacity of a shop.
+
+**How the limits were calibrated**, all on the 4-core development machine, with every run made there:
+smoke x11 (9 with a results file, and 2 earlier ones on a busier machine known only from Locust's own rounded
+table), normal x4, soak x2 (8 minutes each), stress x7 and spike x5. normal and soak also use the first stage
+(15 users, 45 s) of every stress run, as it is the same load. 0 errors in every run. Every limit is
+**2 x the worst value measured at that load, rounded up** to the next 50 ms (500 ms above 1 s), and
+`error_pct` is 0: no run had a single error, and the slowest request of all (3.6 s, a login in stress) is far
+from the 10 s `request_timeout`, so any error is a real finding. Each limit in `perf/config.toml` says which
+measurement (and which run) it comes from.
+
+Timings vary a lot on this virtual machine. During part of the day the host took CPU away from it: `vmstat 1`
+showed 36 to 41% *steal* on average during two stress runs (column `st`: CPU time given to other virtual
+machines). In the three stress runs of that period stress reached at most about 95 req/s at 80 users instead
+of 179, and its total p95 was 528 to 592 ms instead of 18.5 to 140.9 ms; the two spike runs of that period
+reached 313.6 and 386.3 ms instead of 101.9 to 126.7 ms. There were no errors and no code had changed.
+**Every profile is calibrated with all its runs, these included**: stress and spike pass even on a machine
+short of CPU, and normal and soak are set so that they should too.
+
+| Profile | Runs | total p95 / p99 | per endpoint p95 / p99 | error % |
+|---|---|---|---|---|
+| smoke | 11 | 150 / 300 ms | 500 / 500 ms for every endpoint; the declined card must occur | 0 |
+| normal, soak | 4 + 2, and the 15-user stage of 7 stress runs | 350 / 700 ms | own limits per endpoint: reads 200-250 / 300-350 ms, writes 300-500 / 350-700 ms, login 1500 / 1500 ms, logout 250 / 250 ms | 0 |
+| stress | 7 | 1500 / 2500 ms | own limits per endpoint: reads 950-1000 / 1500-2000 ms, writes 1500-2000 / 1500-3500 ms, login 3500 / 7500 ms, logout 5500 / 5500 ms | 0 |
+| spike | 5 | 800 / 2000 ms | own limits per endpoint: 500-950 / 750-3000 ms, login 3000 / 5000 ms, logout 2000 / 2500 ms | 0 |
+
+- **smoke** uses one limit for every endpoint (`each_endpoint`): with about 20 orders and 3 logins per run,
+  an endpoint's p95 is just its slowest request.
+- **normal, soak, stress and spike** give every endpoint its own limits (2 x its own worst): on a slow machine
+  the endpoints are far apart (in stress reads about 0.5 s, writes about 0.85 s, login and logout seconds; at
+  15 users reads about 0.1 s, POST /orders 0.23 s, login 0.6 s), and one shared limit, set by the slowest,
+  would hide a slow read. normal and soak run the same 15 users, so they share limits; all their worst values
+  except logout's came from the 15-user stage of the stress runs made while CPU was taken away. No normal or
+  soak run was made in that state.
+- **What that means:** normal, soak, stress and spike still fail on any error, and on timings at least twice
+  as bad as the worst ones seen on a machine short of CPU. On a machine with its CPUs they are loose: in the
+  four stress runs made with the full CPU the check closest to its limit used only 6 to 13% of it, and the
+  four normal calibration runs had a total p95 of 9.1 to 17.8 ms for a limit of 350 ms, so there a timing regression has to be
+  large before they fail. For small timing changes, compare the tables of runs on the same machine.
+
+On this machine `stress` does not find the point where the app bends when it has its CPUs: requests/s grew
+with the users up to 80 (about 35, 70, 114, 179 req/s) without errors. Recalibrate the limits on the machine
+that runs them.
+
 ## Accessibility
 
 Every control has an accessible name: `aria-label` on the inputs and icon buttons (username, password,
@@ -361,6 +522,9 @@ Drivers/                   Optional, git-ignored: your own chromedriver (see "Br
 PageObjects/               One class per page, plus MenuComponent (shared by all pages)
 Utilities/                 Config reader, test data reader, step logging
 mocks/                     Mock of the external payment service (see "The payment mock")
+perf/                      Performance tests (see "Performance"): run.sh, config.toml, locustfile.py (scenarios),
+                           run.py (starts the app, runs Locust, stops the app), analysis.py (table, HTML report,
+                           thresholds from results.json), settings.py (reads the config)
 tests/                     The UI tests, one file per area, and the fixtures (tests/conftest.py)
 tests_api/                 The API tests (see "API")
 conftest.py                Registers --engine and --device; base_url fixture shared by tests/ and tests_api/
