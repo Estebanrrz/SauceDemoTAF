@@ -1,0 +1,11 @@
+# Packages of the performance tests (perf/). They go into their own virtual environment, .venv-perf,
+# created by perf/run.sh, so the test environment (.venv) stays exactly as requirements.txt says.
+#
+# The constraints line keeps every package shared with the tests (flask, requests, pytest, certifi...)
+# at the version pinned in requirements.txt, so the app runs here with the same versions as in the tests.
+# That is also why Locust is 2.46.6 and not newer: 2.47.0 needs requests>=2.33.1, the tests pin 2.32.5.
+-c ../requirements.txt
+
+locust==2.46.6       # Load generator (headless, driven by perf/run.py)
+flask                # The app under test (app/server.py) runs from this environment; version from requirements.txt
+requests             # Used by the app (payment client, page API client); version from requirements.txt
